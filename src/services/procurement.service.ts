@@ -1,23 +1,21 @@
-import { mockRecommendations } from "@/data/mock-recommendations";
-import { mockInventory } from "@/data/mock-inventory";
+import { useStore } from "@/store/useStore";
 import type { Recommendation } from "@/types";
-
 export function getPendingRecommendations(branchId?: string): Recommendation[] {
-  const recs = mockRecommendations.filter((r) => r.status === "pending");
+  const recs = useStore.getState().recommendations.filter((r) => r.status === "pending");
   if (branchId) return recs.filter((r) => r.branchId === branchId);
   return recs;
 }
 
 export function getRecommendationsByType(type: Recommendation["type"], branchId?: string): Recommendation[] {
-  const recs = mockRecommendations.filter((r) => r.type === type);
+  const recs = useStore.getState().recommendations.filter((r) => r.type === type);
   if (branchId) return recs.filter((r) => r.branchId === branchId);
   return recs;
 }
 
 export function getTotalOverstockCapital(branchId?: string): number {
   const items = branchId
-    ? mockInventory.filter((i) => i.branchId === branchId)
-    : mockInventory;
+    ? useStore.getState().inventory.filter((i) => i.branchId === branchId)
+    : useStore.getState().inventory;
 
   return items.reduce((sum, item) => {
     const excess = Math.max(0, item.currentStock - item.maxStock);
@@ -29,16 +27,16 @@ export function getTotalOverstockCapital(branchId?: string): number {
 
 export function getAISavings(branchId?: string): number {
   const recs = branchId
-    ? mockRecommendations.filter((r) => r.branchId === branchId || r.sourceBranchId === branchId)
-    : mockRecommendations;
+    ? useStore.getState().recommendations.filter((r) => r.branchId === branchId || r.sourceBranchId === branchId)
+    : useStore.getState().recommendations;
 
   return recs.reduce((sum, r) => sum + r.estimatedSavings, 0);
 }
 
 export function getSavingsOpportunityCount(branchId?: string): number {
   const recs = branchId
-    ? mockRecommendations.filter((r) => r.branchId === branchId || r.sourceBranchId === branchId)
-    : mockRecommendations;
+    ? useStore.getState().recommendations.filter((r) => r.branchId === branchId || r.sourceBranchId === branchId)
+    : useStore.getState().recommendations;
 
   return recs.filter((r) => r.estimatedSavings > 0).length;
 }

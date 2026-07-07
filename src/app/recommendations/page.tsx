@@ -4,130 +4,212 @@ import { PageContainer } from "@/components/common/page-container";
 import { PageHeader } from "@/components/common/page-header";
 import { ConfidenceBadge } from "@/components/common/confidence-badge";
 import { StatusBadge } from "@/components/common/status-badge";
-import { mockDecisions } from "@/lib/mock-data";
+import { useStore } from "@/store/useStore";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useMemo, useEffect, Suspense } from "react";
+import { Recommendation } from "@/types";
 
-export default function RecommendationsPage() {
+function RecommendationsContent() {
+  const recommendations = useStore(s => s.recommendations);
+  const approveRecommendation = useStore(s => s.approveRecommendation);
+  const rejectRecommendation = useStore(s => s.rejectRecommendation);
+  const searchParams = useSearchParams();
+  
+  const initialId = searchParams.get("id");
+  const [activeTab, setActiveTab] = useState<Recommendation['status']>("pending");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Switch tab if incoming initialId belongs to a different status
+  useEffect(() => {
+    if (initialId) {
+      const rec = recommendations.find(r => r.id === initialId);
+      if (rec) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setActiveTab(rec.status);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSelectedId(rec.id);
+      }
+    }
+  }, [initialId, recommendations]);
+
+  const filteredRecs = useMemo(() => {
+    return recommendations.filter(r => r.status === activeTab).sort((a, b) => {
+      // rough sort: critical first
+      if (a.urgency === 'critical' && b.urgency !== 'critical') return -1;
+      if (b.urgency === 'critical' && a.urgency !== 'critical') return 1;
+      return 0;
+    });
+  }, [recommendations, activeTab]);
+
+  // Default selection
+  useEffect(() => {
+    if (!selectedId && filteredRecs.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedId(filteredRecs[0].id);
+    } else if (filteredRecs.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedId(null);
+    }
+  }, [filteredRecs, selectedId]);
+
+  const selectedRec = filteredRecs.find(r => r.id === selectedId) || filteredRecs[0];
+
+  const handleApprove = (id: string) => {
+    approveRecommendation(id);
+  };
+
+  const handleReject = (id: string) => {
+    rejectRecommendation(id);
+  };
+
   return (
-    <PageContainer>
+    <>
       <PageHeader 
         title="Decision Center" 
         description="Review AI-generated procurement strategies ranked by urgency and business impact." 
       />
 
       <div className="flex items-center gap-6 border-b border-border mb-6">
-        <button className="pb-3 text-[14px] font-bold text-text-primary border-b-2 border-[var(--color-intelligence)]">
+        <button 
+          onClick={() => { setActiveTab("pending"); setSelectedId(null); }}
+          className={`pb-3 text-[14px] ${activeTab === 'pending' ? 'font-bold text-text-primary border-b-2 border-[var(--color-intelligence)]' : 'font-medium text-text-secondary hover:text-text-primary transition-colors border-b-2 border-transparent'}`}
+        >
           Needs Attention
         </button>
-        <button className="pb-3 text-[14px] font-medium text-text-secondary hover:text-text-primary transition-colors border-b-2 border-transparent">
+        <button 
+          onClick={() => { setActiveTab("approved"); setSelectedId(null); }}
+          className={`pb-3 text-[14px] ${activeTab === 'approved' ? 'font-bold text-text-primary border-b-2 border-[var(--color-intelligence)]' : 'font-medium text-text-secondary hover:text-text-primary transition-colors border-b-2 border-transparent'}`}
+        >
           Approved
         </button>
-        <button className="pb-3 text-[14px] font-medium text-text-secondary hover:text-text-primary transition-colors border-b-2 border-transparent">
+        <button 
+          onClick={() => { setActiveTab("rejected"); setSelectedId(null); }}
+          className={`pb-3 text-[14px] ${activeTab === 'rejected' ? 'font-bold text-text-primary border-b-2 border-[var(--color-intelligence)]' : 'font-medium text-text-secondary hover:text-text-primary transition-colors border-b-2 border-transparent'}`}
+        >
           Rejected
-        </button>
-        <button className="pb-3 text-[14px] font-medium text-text-secondary hover:text-text-primary transition-colors border-b-2 border-transparent">
-          Completed
         </button>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
         
         {/* Decision List */}
-        <div className="flex flex-col gap-4 w-full lg:w-1/2 xl:w-2/5">
-          {mockDecisions.map((decision, i) => (
+        <div className="flex flex-col gap-4 w-full lg:w-1/2 xl:w-2/5 max-h-[800px] overflow-y-auto pr-2">
+          {filteredRecs.length > 0 ? filteredRecs.map((decision) => (
             <div 
               key={decision.id}
-              className={`flex flex-col p-[20px] bg-white border rounded-[12px] cursor-pointer transition-colors ${i === 0 ? 'border-[var(--color-intelligence)] shadow-sm' : 'border-border shadow-sm hover:border-border-strong'}`}
+              onClick={() => setSelectedId(decision.id)}
+              className={`flex flex-col p-[20px] bg-white border rounded-[12px] cursor-pointer transition-colors ${selectedRec?.id === decision.id ? 'border-[var(--color-intelligence)] shadow-sm' : 'border-border shadow-sm hover:border-border-strong'}`}
             >
               <div className="flex items-center justify-between mb-3">
-                <StatusBadge status={decision.status} />
-                <span className="text-[12px] font-medium text-text-muted">{decision.timeToBreach}</span>
+                <StatusBadge status={decision.urgency === 'critical' ? 'Critical' : decision.urgency === 'high' ? 'High' : 'Monitored'} />
+                {decision.status === 'pending' && <span className="text-[12px] font-medium text-text-muted">{decision.timeToBreach || 'Monitor'}</span>}
               </div>
               
-              <h3 className="text-[18px] font-bold text-text-primary mb-1">{decision.item}</h3>
-              <span className="text-[13px] text-text-secondary mb-4">{decision.branch}</span>
+              <h3 className="text-[18px] font-bold text-text-primary mb-1">{decision.itemName}</h3>
+              <span className="text-[13px] text-text-secondary mb-4">{decision.branchName}</span>
               
               <div className="flex items-center justify-between pt-4 border-t border-border/60">
                 <div className="flex flex-col">
                   <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1">Impact</span>
-                  <span className="text-[14px] font-bold text-text-primary tabular-nums">₹{decision.netProtection.toLocaleString()}</span>
+                  <span className="text-[14px] font-bold text-text-primary tabular-nums">
+                    ₹{((decision.estimatedSavings || 0) + (decision.estimatedCost || 0)).toLocaleString()}
+                  </span>
                 </div>
-                <ConfidenceBadge score={decision.confidence} />
+                <ConfidenceBadge score={decision.confidenceScore} />
               </div>
             </div>
-          ))}
+          )) : (
+            <div className="p-8 text-center bg-white border border-border rounded-xl text-text-muted text-[13px]">
+              No {activeTab} decisions found.
+            </div>
+          )}
         </div>
 
         {/* Active Decision Detail */}
-        <div className="flex flex-col w-full lg:w-1/2 xl:w-3/5 bg-white border border-border rounded-[16px] shadow-sm overflow-hidden h-fit">
-          <div className="p-[24px] border-b border-border">
-            <h2 className="text-[24px] font-bold text-text-primary mb-2">Chicken Breast — Hyderabad Central</h2>
-            <p className="text-[14px] text-text-secondary">Projected to breach safety stock in 46 hours. 3 strategies available.</p>
-          </div>
-          
-          <div className="flex flex-col bg-surface/30 p-[24px] gap-6">
+        {selectedRec && (
+          <div className="flex flex-col w-full lg:w-1/2 xl:w-3/5 bg-white border border-border rounded-[16px] shadow-sm overflow-hidden h-fit">
+            <div className="p-[24px] border-b border-border">
+              <h2 className="text-[24px] font-bold text-text-primary mb-2">{selectedRec.itemName} — {selectedRec.branchName}</h2>
+              <p className="text-[14px] text-text-secondary">
+                {selectedRec.reasoning} 
+                {selectedRec.status === 'approved' && <span className="text-[var(--color-intelligence)] font-bold ml-2">(Approved)</span>}
+                {selectedRec.status === 'rejected' && <span className="text-critical font-bold ml-2">(Rejected)</span>}
+              </p>
+            </div>
             
-            {/* Strategy Option A */}
-            <div className="flex flex-col bg-white border border-[var(--color-intelligence)] rounded-[12px] p-[20px] shadow-sm relative">
-              <div className="absolute top-0 right-0 bg-[var(--color-intelligence)] text-white text-[10px] font-bold uppercase px-3 py-1 rounded-bl-[12px] rounded-tr-[11px]">
-                AI Recommended
-              </div>
-              <h3 className="text-[16px] font-bold text-text-primary mb-4">Option C: Hybrid Replenishment</h3>
+            <div className="flex flex-col bg-surface/30 p-[24px] gap-6">
               
-              <div className="grid grid-cols-2 gap-y-4 mb-4">
-                <div>
-                  <span className="block text-[11px] font-semibold text-text-muted uppercase mb-1">Actions</span>
-                  <span className="block text-[13px] font-medium text-text-primary">Transfer 18 kg (Warangal)</span>
-                  <span className="block text-[13px] font-medium text-text-primary">Purchase 22 kg (FreshRoute)</span>
+              {/* Strategy Option A */}
+              <div className="flex flex-col bg-white border border-[var(--color-intelligence)] rounded-[12px] p-[20px] shadow-sm relative">
+                <div className="absolute top-0 right-0 bg-[var(--color-intelligence)] text-white text-[10px] font-bold uppercase px-3 py-1 rounded-bl-[12px] rounded-tr-[11px]">
+                  AI Recommended
                 </div>
-                <div>
-                  <span className="block text-[11px] font-semibold text-text-muted uppercase mb-1">Net Financial Impact</span>
-                  <span className="block text-[14px] font-bold text-text-primary">₹31,410</span>
+                <h3 className="text-[16px] font-bold text-text-primary mb-4 capitalize">{selectedRec.type} Strategy</h3>
+                
+                <div className="grid grid-cols-2 gap-y-4 mb-4">
+                  <div>
+                    <span className="block text-[11px] font-semibold text-text-muted uppercase mb-1">Actions</span>
+                    <span className="block text-[13px] font-medium text-text-primary">
+                      {selectedRec.type === 'transfer' ? `Transfer ${selectedRec.suggestedQty} ${selectedRec.unit} from ${selectedRec.sourceBranchName || 'another branch'}` :
+                       selectedRec.type === 'reduce' ? `Reduce next order by ${selectedRec.suggestedQty} ${selectedRec.unit}` :
+                       `Consolidate supplier order`}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[11px] font-semibold text-text-muted uppercase mb-1">Net Financial Impact</span>
+                    <span className="block text-[14px] font-bold text-text-primary">
+                      {selectedRec.estimatedSavings ? `₹${selectedRec.estimatedSavings.toLocaleString()} Saved` : `₹${selectedRec.estimatedCost?.toLocaleString()} Cost`}
+                    </span>
+                  </div>
+                </div>
+
+                {selectedRec.status === 'pending' && (
+                  <div className="flex gap-3 mt-4 pt-4 border-t border-border">
+                    <button 
+                      onClick={() => handleApprove(selectedRec.id)}
+                      className="flex-1 h-[40px] bg-[var(--color-sidebar-bg)] text-white rounded-[8px] text-[13px] font-medium hover:bg-black transition-colors"
+                    >
+                      Approve Strategy
+                    </button>
+                    <button 
+                      onClick={() => handleReject(selectedRec.id)}
+                      className="h-[40px] px-[16px] bg-white border border-border rounded-[8px] text-[13px] font-medium text-critical hover:bg-red-50 transition-colors"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Mock alternative options for visual fidelity */}
+              <div className="flex flex-col bg-white border border-border rounded-[12px] p-[20px] opacity-70 grayscale">
+                <h3 className="text-[16px] font-bold text-text-primary mb-4">Alternative Option</h3>
+                <div className="grid grid-cols-2 gap-y-4">
+                  <div>
+                    <span className="block text-[11px] font-semibold text-text-muted uppercase mb-1">Actions</span>
+                    <span className="block text-[13px] font-medium text-text-primary">Do Nothing</span>
+                  </div>
+                  <div>
+                    <span className="block text-[11px] font-semibold text-text-muted uppercase mb-1">Risk</span>
+                    <span className="block text-[13px] font-bold text-critical">Stockout Projected</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-4 pt-4 border-t border-border">
-                <button className="flex-1 h-[40px] bg-[var(--color-sidebar-bg)] text-white rounded-[8px] text-[13px] font-medium hover:bg-black transition-colors">
-                  Approve Strategy
-                </button>
-                <button className="h-[40px] px-[16px] bg-white border border-border rounded-[8px] text-[13px] font-medium text-text-primary hover:bg-surface-hover transition-colors">
-                  Modify
-                </button>
-              </div>
             </div>
-
-            {/* Strategy Option B */}
-            <div className="flex flex-col bg-white border border-border rounded-[12px] p-[20px]">
-              <h3 className="text-[16px] font-bold text-text-primary mb-4">Option B: Inter-branch Transfer Only</h3>
-              <div className="grid grid-cols-2 gap-y-4">
-                <div>
-                  <span className="block text-[11px] font-semibold text-text-muted uppercase mb-1">Actions</span>
-                  <span className="block text-[13px] font-medium text-text-primary">Transfer 18 kg (Warangal)</span>
-                </div>
-                <div>
-                  <span className="block text-[11px] font-semibold text-text-muted uppercase mb-1">Risk</span>
-                  <span className="block text-[13px] font-bold text-critical">12kg Shortfall Projected</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Strategy Option C */}
-            <div className="flex flex-col bg-white border border-border rounded-[12px] p-[20px]">
-              <h3 className="text-[16px] font-bold text-text-primary mb-4">Option A: Full Purchase</h3>
-              <div className="grid grid-cols-2 gap-y-4">
-                <div>
-                  <span className="block text-[11px] font-semibold text-text-muted uppercase mb-1">Actions</span>
-                  <span className="block text-[13px] font-medium text-text-primary">Purchase 40 kg (Metro Wholesale)</span>
-                </div>
-                <div>
-                  <span className="block text-[11px] font-semibold text-text-muted uppercase mb-1">Risk</span>
-                  <span className="block text-[13px] font-bold text-amber-600">Overstock Risk (14 days cover)</span>
-                </div>
-              </div>
-            </div>
-
           </div>
-        </div>
+        )}
       </div>
+    </>
+  );
+}
+
+export default function RecommendationsPage() {
+  return (
+    <PageContainer>
+      <Suspense fallback={<div className="p-8 text-center text-text-muted">Loading recommendations...</div>}>
+        <RecommendationsContent />
+      </Suspense>
     </PageContainer>
   );
 }

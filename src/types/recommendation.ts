@@ -23,6 +23,7 @@ export interface Recommendation {
   sourceBranchId?: string;
   sourceBranchName?: string;
   confidenceScore: number;
+  timeToBreach?: string;
 }
 
 export type FeedEventType = "critical" | "warning" | "opportunity" | "info";

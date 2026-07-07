@@ -1,29 +1,67 @@
 "use client";
 
-import { mockDecisions } from "@/lib/mock-data";
+import { useStore } from "@/store/useStore";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { useMemo } from "react";
 
-export function DecisionQueue() {
+export function DecisionQueue({ branchId }: { branchId?: string }) {
+  const recommendations = useStore((s) => s.recommendations);
+  
+  const pendingDecisions = useMemo(() => {
+    return recommendations
+      .filter((r) => r.status === "pending" && (!branchId || r.branchId === branchId))
+      .map((decision) => {
+        let strategyType = "Hybrid replenishment";
+        if (decision.type === "transfer") strategyType = "Inter-branch transfer";
+        if (decision.type === "procure") strategyType = "Purchase recommendation";
+        if (decision.type === "reduce") strategyType = "Inventory reduction";
+
+        let timeToBreach = "N/A";
+        if (decision.urgency === "critical") timeToBreach = "46 hrs";
+        else if (decision.urgency === "high") timeToBreach = "1.2 days";
+        else if (decision.urgency === "medium") timeToBreach = "3.4 days";
+
+        return {
+          id: decision.id,
+          item: decision.itemName,
+          branch: decision.branchName,
+          status: decision.urgency,
+          timeToBreach,
+          confidence: decision.confidenceScore,
+          strategyType,
+          netProtection: decision.estimatedCost + decision.estimatedSavings, // rough mock metric
+        };
+      })
+      .slice(0, 4); // Only show top 4
+  }, [recommendations]);
+
+  if (pendingDecisions.length === 0) {
+    return null;
+  }
+
   return (
     <div className="flex flex-col w-full">
       
-      <div className="mb-3.5">
-        <h2 className="text-[21px] md:text-[22px] font-[700] text-text-primary mb-1">
-          Decisions requiring attention
-        </h2>
-        <p className="text-[14px] text-text-secondary">
-          Prioritized by financial impact and time sensitivity.
-        </p>
+      <div className="mb-3.5 flex items-end justify-between">
+        <div>
+          <h2 className="text-[21px] md:text-[22px] font-[700] text-text-primary mb-1">
+            Decisions requiring attention
+          </h2>
+          <p className="text-[14px] text-text-secondary">
+            Prioritized by financial impact and time sensitivity.
+          </p>
+        </div>
       </div>
 
       {/* Structured List Surface */}
       <div className="flex flex-col bg-white border border-border rounded-xl overflow-hidden shadow-sm">
-        {mockDecisions.map((decision, index) => (
+        {pendingDecisions.map((decision, index) => (
           <div 
             key={decision.id}
             className={cn(
               "flex flex-col md:grid md:grid-cols-[2.5fr_2.5fr_1.6fr_1.4fr_1fr_auto] gap-y-4 md:gap-x-4 items-start md:items-center min-h-[70px] md:h-[72px] p-4 lg:px-5 transition-colors group",
-              index !== mockDecisions.length - 1 ? 'border-b border-border/50' : '',
+              index !== pendingDecisions.length - 1 ? 'border-b border-border/50' : '',
               "hover:bg-surface-hover/50"
             )}
           >
@@ -65,9 +103,9 @@ export function DecisionQueue() {
 
             {/* Action */}
             <div className="flex items-center justify-end w-full md:w-auto shrink-0">
-              <button className="h-[36px] px-3 bg-white border border-border rounded-lg text-[13px] font-medium text-text-primary hover:bg-surface-hover hover:border-border-strong transition-all shadow-sm shrink-0">
+              <Link href={`/recommendations?id=${decision.id}`} className="inline-flex items-center justify-center h-[36px] px-3 bg-white border border-border rounded-lg text-[13px] font-medium text-text-primary hover:bg-surface-hover hover:border-border-strong transition-all shadow-sm shrink-0">
                 Review
-              </button>
+              </Link>
             </div>
 
           </div>

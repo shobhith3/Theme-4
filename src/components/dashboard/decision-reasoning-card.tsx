@@ -1,8 +1,22 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { useStore } from "@/store/useStore";
 
-export function DecisionReasoningCard() {
+export function DecisionReasoningCard({ branchId }: { branchId?: string }) {
+  const recommendations = useStore((s) => s.recommendations);
+  
+  const topDecision = recommendations.find(r => 
+    r.status === "pending" && 
+    r.urgency === "critical" &&
+    (!branchId || r.branchId === branchId)
+  ) || recommendations.find(r => 
+    r.status === "pending" &&
+    (!branchId || r.branchId === branchId)
+  );
+
+  if (!topDecision) return null;
+
   return (
     <div className="flex flex-col bg-white rounded-xl border border-border p-5.5 shadow-sm">
       
@@ -12,27 +26,27 @@ export function DecisionReasoningCard() {
           Risk Drivers
         </h3>
         <p className="text-[13px] text-text-secondary mt-1.5 leading-relaxed">
-          Four factors are converging on the same risk window.
+          {topDecision.urgency === "critical" ? "Four factors are converging on the same risk window." : "Key factors driving this recommendation."}
         </p>
       </div>
 
       {/* Factor Grid (2x2) */}
       <div className="grid grid-cols-2 gap-x-4.5 gap-y-3.5 mt-4.5">
         <div className="flex flex-col bg-surface rounded-[10px] p-3.5 min-w-0">
-          <span className="text-[12px] font-medium text-text-secondary mb-1">Weekend demand</span>
-          <span className="text-[24px] font-bold text-critical tabular-nums leading-none">+38%</span>
+          <span className="text-[12px] font-medium text-text-secondary mb-1">Status</span>
+          <span className="text-[20px] font-bold text-critical tabular-nums leading-none capitalize">{topDecision.urgency}</span>
         </div>
         <div className="flex flex-col bg-surface rounded-[10px] p-3.5 min-w-0">
-          <span className="text-[12px] font-medium text-text-secondary mb-1">Inventory cover</span>
-          <span className="text-[24px] font-bold text-text-primary tabular-nums leading-none">1.9 days</span>
+          <span className="text-[12px] font-medium text-text-secondary mb-1">Protection</span>
+          <span className="text-[20px] font-bold text-text-primary tabular-nums leading-none">₹{((topDecision.estimatedCost || 0) + (topDecision.estimatedSavings || 0)).toLocaleString()}</span>
         </div>
         <div className="flex flex-col bg-surface rounded-[10px] p-3.5 min-w-0">
-          <span className="text-[12px] font-medium text-text-secondary mb-1">Supplier lead time</span>
-          <span className="text-[24px] font-bold text-text-primary tabular-nums leading-none">1.4 days</span>
+          <span className="text-[12px] font-medium text-text-secondary mb-1">Confidence</span>
+          <span className="text-[20px] font-bold text-text-primary tabular-nums leading-none">{topDecision.confidenceScore}%</span>
         </div>
         <div className="flex flex-col bg-surface rounded-[10px] p-3.5 min-w-0">
-          <span className="text-[12px] font-medium text-text-secondary mb-1">Safety threshold</span>
-          <span className="text-[24px] font-bold text-text-primary tabular-nums leading-none">10 kg</span>
+          <span className="text-[12px] font-medium text-text-secondary mb-1">Qty</span>
+          <span className="text-[20px] font-bold text-text-primary tabular-nums leading-none">{topDecision.suggestedQty} {topDecision.unit}</span>
         </div>
       </div>
 
@@ -46,11 +60,11 @@ export function DecisionReasoningCard() {
           
           {/* Nodes */}
           {[
-            { value: "24 kg", label: "CURRENT", color: "bg-text-primary", active: true },
-            { value: "18 kg", label: "", color: "bg-text-muted/40", active: false },
-            { value: "11 kg", label: "", color: "bg-text-muted/40", active: false },
-            { value: "5 kg", label: "SAFETY BREACH", color: "bg-warning", active: true },
-            { value: "0 kg", label: "STOCKOUT", color: "bg-critical", active: true },
+            { value: "Current", label: "CURRENT", color: "bg-text-primary", active: true },
+            { value: "", label: "", color: "bg-text-muted/40", active: false },
+            { value: "", label: "", color: "bg-text-muted/40", active: false },
+            { value: "Safety", label: "SAFETY BREACH", color: "bg-warning", active: true },
+            { value: "0", label: "STOCKOUT", color: "bg-critical", active: true },
           ].map((node, i) => (
             <div key={i} className="flex flex-col items-center relative">
               <div className={cn(
@@ -85,7 +99,7 @@ export function DecisionReasoningCard() {
             AI RATIONALE
           </span>
           <p className="text-[14px] text-text-secondary leading-[1.5]">
-            Weekend demand is rising faster than available stock. Transfer alone is insufficient, while full procurement creates unnecessary excess risk.
+            {topDecision.reasoning}
           </p>
         </div>
       </div>

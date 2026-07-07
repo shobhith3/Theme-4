@@ -7,8 +7,16 @@ import { DecisionQueue } from "@/components/dashboard/decision-queue";
 import { MetricStrip } from "@/components/dashboard/metric-strip";
 import { RiskOutlook } from "@/components/dashboard/risk-outlook";
 import { ChevronDown } from "lucide-react";
+import { useStore } from "@/store/useStore";
+import { useState } from "react";
 
 export default function CommandCenterPage() {
+  const [selectedBranch, setSelectedBranch] = useState<string | "all">("all");
+  const branches = useStore((s) => s.branches);
+  const settings = useStore((s) => s.settings);
+
+  const branchId = selectedBranch === "all" ? undefined : selectedBranch;
+
   return (
     <PageContainer className="pt-0">
       
@@ -28,10 +36,22 @@ export default function CommandCenterPage() {
         
         <div className="flex flex-col md:items-end gap-1.5 shrink-0">
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-2 px-3 h-[34px] bg-surface border border-border rounded-md text-[13px] font-medium text-text-primary hover:border-border-strong transition-colors shadow-sm">
-              All Branches
-              <ChevronDown className="w-3.5 h-3.5 text-text-muted" />
-            </button>
+            <div className="relative">
+              <select
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+              >
+                <option value="all">All Branches</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+              <button className="flex items-center gap-2 px-3 h-[34px] bg-surface border border-border rounded-md text-[13px] font-medium text-text-primary hover:border-border-strong transition-colors shadow-sm pointer-events-none">
+                {selectedBranch === "all" ? "All Branches" : branches.find(b => b.id === selectedBranch)?.name || "All Branches"}
+                <ChevronDown className="w-3.5 h-3.5 text-text-muted" />
+              </button>
+            </div>
             <button className="flex items-center gap-2 px-3 h-[34px] bg-surface border border-border rounded-md text-[13px] font-medium text-text-primary hover:border-border-strong transition-colors shadow-sm">
               Today
               <ChevronDown className="w-3.5 h-3.5 text-text-muted" />
@@ -39,7 +59,7 @@ export default function CommandCenterPage() {
           </div>
           <div className="flex items-center gap-1.5 pr-1">
             <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-intelligence)] animate-pulse" />
-            <span className="text-[11px] font-medium text-text-muted">Updated 4 min ago</span>
+            <span className="text-[11px] font-medium text-text-muted">Updated just now</span>
           </div>
         </div>
       </div>
@@ -47,26 +67,26 @@ export default function CommandCenterPage() {
       {/* SECTION 2: Executive Intelligence Brief */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 w-full mb-9 items-start">
         <div className="xl:col-span-2 min-w-0">
-          <PrimaryDecisionCard />
+          <PrimaryDecisionCard branchId={branchId} />
         </div>
         <div className="xl:col-span-1 min-w-0">
-          <DecisionReasoningCard />
+          <DecisionReasoningCard branchId={branchId} />
         </div>
       </div>
 
       {/* SECTION 3: Decision Queue */}
       <div className="mb-8">
-        <DecisionQueue />
+        <DecisionQueue branchId={branchId} />
       </div>
 
       {/* SECTION 4: Network Pulse Metrics */}
       <div className="mb-8">
-        <MetricStrip />
+        <MetricStrip branchId={branchId} />
       </div>
 
       {/* SECTION 5: Risk & Opportunity Outlook */}
       <div>
-        <RiskOutlook />
+        <RiskOutlook branchId={branchId} />
       </div>
 
     </PageContainer>

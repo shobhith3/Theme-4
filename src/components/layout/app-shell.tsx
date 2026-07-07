@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { MobileNav } from "./mobile-nav";
+import { useStore } from "@/store/useStore";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -11,7 +12,8 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const isSidebarCollapsed = useStore((s) => s.settings.sidebarCollapsed);
+  const updateSettings = useStore((s) => s.updateSettings);
 
   return (
     <>
@@ -32,7 +34,7 @@ export function AppShell({ children }: AppShellProps) {
         <div className="hidden xl:block h-screen sticky top-0 border-r border-white/5 z-40 bg-[var(--color-sidebar-bg)] overflow-hidden transition-all duration-300">
           <Sidebar 
             isCollapsed={isSidebarCollapsed} 
-            onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+            onToggle={() => updateSettings({ sidebarCollapsed: !isSidebarCollapsed })} 
           />
         </div>
 

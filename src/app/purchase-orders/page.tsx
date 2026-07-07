@@ -4,21 +4,38 @@ import { PageContainer } from "@/components/common/page-container";
 import { PageHeader } from "@/components/common/page-header";
 import { DataTable } from "@/components/common/data-table";
 import { StatusBadge } from "@/components/common/status-badge";
-import { mockOrders } from "@/lib/mock-data";
+import { useStore } from "@/store/useStore";
+import { useState, useMemo } from "react";
+import { PurchaseOrder } from "@/types";
 
 export default function PurchaseOrdersPage() {
+  const purchaseOrders = useStore(s => s.purchaseOrders);
+  const [activeTab, setActiveTab] = useState<PurchaseOrder['status'] | "all">("all");
+
+  const filteredOrders = useMemo(() => {
+    if (activeTab === "all") return purchaseOrders;
+    return purchaseOrders.filter(po => po.status === activeTab);
+  }, [purchaseOrders, activeTab]);
+
   const columns = [
-    { header: "PO Number", accessorKey: "id" as const },
-    { header: "Supplier", accessorKey: "supplier" as const },
-    { header: "Branch", accessorKey: "branch" as const },
-    { header: "Items", accessorKey: "items" as const, align: "right" as const },
-    { header: "Value", accessorKey: "value" as const, align: "right" as const },
-    { header: "Expected Delivery", accessorKey: "delivery" as const },
+    { header: "PO Number", accessorKey: "poNumber" as const },
+    { header: "Supplier", accessorKey: "supplierName" as const },
+    { header: "Branch", accessorKey: "branchName" as const },
+    { header: "Items", cell: (item: PurchaseOrder) => `${item.lineItems.length}`, align: "right" as const },
+    { header: "Value", cell: (item: PurchaseOrder) => `₹${item.totalAmount.toLocaleString()}`, align: "right" as const },
+    { header: "Expected Delivery", cell: (item: PurchaseOrder) => new Date(item.expectedDeliveryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) },
     { 
       header: "Status", 
-      cell: (item: typeof mockOrders[0]) => <StatusBadge status={item.status} /> 
-    },
-    { header: "Owner", accessorKey: "owner" as const },
+      cell: (item: PurchaseOrder) => <StatusBadge status={item.status === 'sent' ? 'In Transit' : item.status === 'fulfilled' ? 'Delivered' : item.status === 'approved' ? 'Approved' : item.status === 'draft' ? 'Draft' : 'Review'} /> 
+    }
+  ];
+
+  const TABS: { label: string, value: PurchaseOrder['status'] | "all" }[] = [
+    { label: "All", value: "all" },
+    { label: "Draft", value: "draft" },
+    { label: "Approved", value: "approved" },
+    { label: "In Transit", value: "sent" },
+    { label: "Delivered", value: "fulfilled" }
   ];
 
   return (
@@ -34,27 +51,18 @@ export default function PurchaseOrdersPage() {
       />
 
       <div className="flex items-center gap-6 border-b border-border mb-6">
-        <button className="pb-3 text-[14px] font-bold text-text-primary border-b-2 border-[var(--color-intelligence)]">
-          All
-        </button>
-        <button className="pb-3 text-[14px] font-medium text-text-secondary hover:text-text-primary transition-colors border-b-2 border-transparent">
-          Draft
-        </button>
-        <button className="pb-3 text-[14px] font-medium text-text-secondary hover:text-text-primary transition-colors border-b-2 border-transparent">
-          Awaiting Approval
-        </button>
-        <button className="pb-3 text-[14px] font-medium text-text-secondary hover:text-text-primary transition-colors border-b-2 border-transparent">
-          Approved
-        </button>
-        <button className="pb-3 text-[14px] font-medium text-text-secondary hover:text-text-primary transition-colors border-b-2 border-transparent">
-          In Transit
-        </button>
-        <button className="pb-3 text-[14px] font-medium text-text-secondary hover:text-text-primary transition-colors border-b-2 border-transparent">
-          Received
-        </button>
+        {TABS.map(tab => (
+          <button 
+            key={tab.value}
+            onClick={() => setActiveTab(tab.value)}
+            className={`pb-3 text-[14px] ${activeTab === tab.value ? 'font-bold text-text-primary border-b-2 border-[var(--color-intelligence)]' : 'font-medium text-text-secondary hover:text-text-primary transition-colors border-b-2 border-transparent'}`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <DataTable data={mockOrders} columns={columns} onRowClick={(item) => console.log(item)} />
+      <DataTable data={filteredOrders} columns={columns} onRowClick={(item) => console.log(item)} />
     </PageContainer>
   );
 }

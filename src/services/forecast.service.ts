@@ -1,7 +1,5 @@
-import { mockInventory } from "@/data/mock-inventory";
-import { mockForecasts } from "@/data/mock-forecasts";
+import { useStore } from "@/store/useStore";
 import type { InventoryItem, ItemForecast } from "@/types";
-
 export interface StockoutRisk {
   item: InventoryItem;
   daysUntilStockout: number;
@@ -16,8 +14,8 @@ export function calculateDaysUntilStockout(item: InventoryItem): number {
 
 export function getStockoutRisks(branchId?: string): StockoutRisk[] {
   const items = branchId
-    ? mockInventory.filter((i) => i.branchId === branchId)
-    : mockInventory;
+    ? useStore.getState().inventory.filter((i) => i.branchId === branchId)
+    : useStore.getState().inventory;
 
   return items
     .map((item) => {
@@ -37,15 +35,15 @@ export function getStockoutRisks(branchId?: string): StockoutRisk[] {
 }
 
 export function getForecastsForBranch(branchId: string): ItemForecast[] {
-  return mockForecasts.filter((f) => f.branchId === branchId);
+  return useStore.getState().forecasts.filter((f) => f.branchId === branchId);
 }
 
 export function getAllForecasts(): ItemForecast[] {
-  return mockForecasts;
+  return useStore.getState().forecasts;
 }
 
 export function getForecastSeries(itemName: string) {
-  const forecast = mockForecasts.find((f) => f.itemName === itemName);
+  const forecast = useStore.getState().forecasts.find((f) => f.itemName === itemName);
   if (!forecast) return [];
   return forecast.dataPoints;
 }
