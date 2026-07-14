@@ -64,14 +64,29 @@ function InventoryContent() {
     },
     {
       header: "Action",
-      cell: (item: InventoryItem) => (
-        <button 
-          onClick={(e) => { e.stopPropagation(); setSelectedItem(item); }}
-          className="text-[13px] font-medium text-[var(--color-intelligence-text)] hover:underline"
-        >
-          View Details
-        </button>
-      )
+      cell: (item: InventoryItem) => {
+        const rec = useStore.getState().recommendations.find(r => r.itemId === item.id && r.branchId === item.branchId && r.status === "pending");
+        return (
+          <div className="flex items-center gap-3 justify-end">
+            {rec ? (
+              <a 
+                href={`/recommendations?id=${rec.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-[13px] font-medium text-[var(--color-accent)] hover:underline"
+              >
+                Review Decision
+              </a>
+            ) : null}
+            <button 
+              onClick={(e) => { e.stopPropagation(); setSelectedItem(item); }}
+              className="text-[13px] font-medium text-text-secondary hover:text-text-primary hover:underline"
+            >
+              View Stock Detail
+            </button>
+          </div>
+        );
+      },
+      align: "right" as const
     }
   ];
 

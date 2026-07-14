@@ -6,12 +6,16 @@ import { DecisionReasoningCard } from "@/components/dashboard/decision-reasoning
 import { DecisionQueue } from "@/components/dashboard/decision-queue";
 import { MetricStrip } from "@/components/dashboard/metric-strip";
 import { RiskOutlook } from "@/components/dashboard/risk-outlook";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronRight, Activity } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { useState } from "react";
+import { GuidedDecisionReview } from "@/components/decision/guided-decision-review";
 
 export default function CommandCenterPage() {
   const [selectedBranch, setSelectedBranch] = useState<string | "all">("all");
+  const [isAdvancedView, setIsAdvancedView] = useState(false);
+  const [selectedDecisionId, setSelectedDecisionId] = useState<string | null>(null);
+  
   const branches = useStore((s) => s.branches);
   const settings = useStore((s) => s.settings);
 
@@ -67,28 +71,53 @@ export default function CommandCenterPage() {
       {/* SECTION 2: Executive Intelligence Brief */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 w-full mb-9 items-start">
         <div className="xl:col-span-2 min-w-0">
-          <PrimaryDecisionCard branchId={branchId} />
+          <PrimaryDecisionCard 
+            branchId={branchId} 
+            onReviewDecision={(id) => setSelectedDecisionId(id)} 
+          />
         </div>
         <div className="xl:col-span-1 min-w-0">
           <DecisionReasoningCard branchId={branchId} />
         </div>
       </div>
 
-      {/* SECTION 3: Decision Queue */}
-      <div className="mb-8">
-        <DecisionQueue branchId={branchId} />
+      {/* Advanced View Toggle */}
+      <div className="flex items-center justify-center mb-8 border-t border-border pt-6">
+        <button
+          onClick={() => setIsAdvancedView(!isAdvancedView)}
+          className="flex items-center gap-2 px-4 py-2 bg-surface hover:bg-surface-hover border border-border rounded-full text-[13px] font-medium text-text-secondary transition-colors"
+        >
+          <Activity className="w-4 h-4" />
+          {isAdvancedView ? "Hide full analysis" : "View full analysis"}
+          <ChevronDown className={`w-4 h-4 transition-transform ${isAdvancedView ? "rotate-180" : ""}`} />
+        </button>
       </div>
 
-      {/* SECTION 4: Network Pulse Metrics */}
-      <div className="mb-8">
-        <MetricStrip branchId={branchId} />
-      </div>
+      {isAdvancedView && (
+        <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+          {/* SECTION 3: Decision Queue */}
+          <div className="mb-8">
+            <DecisionQueue branchId={branchId} />
+          </div>
 
-      {/* SECTION 5: Risk & Opportunity Outlook */}
-      <div>
-        <RiskOutlook branchId={branchId} />
-      </div>
+          {/* SECTION 4: Network Pulse Metrics */}
+          <div className="mb-8">
+            <MetricStrip branchId={branchId} />
+          </div>
 
+          {/* SECTION 5: Risk & Opportunity Outlook */}
+          <div>
+            <RiskOutlook branchId={branchId} />
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      <GuidedDecisionReview 
+        isOpen={!!selectedDecisionId}
+        onClose={() => setSelectedDecisionId(null)}
+        decisionId={selectedDecisionId}
+      />
     </PageContainer>
   );
 }

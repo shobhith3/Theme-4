@@ -2,10 +2,11 @@
 
 import { ArrowRight, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 const decisions = [
   {
-    id: "d1",
+    id: "rec-001",
     item: "Chicken Breast",
     branch: "Hyderabad Central",
     status: "CRITICAL",
@@ -16,7 +17,7 @@ const decisions = [
     confidence: 92,
   },
   {
-    id: "d2",
+    id: "rec-002",
     item: "Tomatoes",
     branch: "Siddipet Main",
     status: "OPPORTUNITY",
@@ -27,7 +28,7 @@ const decisions = [
     confidence: 95,
   },
   {
-    id: "d3",
+    id: "rec-003",
     item: "Cooking Oil",
     branch: "Siddipet Main",
     status: "HIGH",
@@ -69,7 +70,7 @@ export function CriticalDecisions() {
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-5">
               <div>
-                <p className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Risk / Context</p>
+                <p className="text-[11px] font-medium text-text-muted uppercase tracking-wider mb-1">Expected stock risk time</p>
                 <p className="text-[13px] text-text-primary font-medium">{decision.risk}</p>
               </div>
               <div>
@@ -81,19 +82,22 @@ export function CriticalDecisions() {
             <div className="bg-background rounded-md p-3 mb-4 border border-border">
               <div className="flex items-center justify-between mb-1.5">
                 <p className="text-[11px] font-medium text-text-muted uppercase tracking-wider">Recommended Strategy: {decision.strategy}</p>
-                <div className="flex items-center gap-1 text-[11px] font-medium text-success">
+                <div className="flex items-center gap-1 text-[11px] font-medium text-success relative group cursor-help w-fit">
                   <Info className="w-3.5 h-3.5" />
                   <span>{decision.confidence}% confidence</span>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-text-primary text-white text-[11px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                    This score shows how reliable the forecast is based on available sales and inventory data.
+                  </div>
                 </div>
               </div>
               <p className="text-[13px] font-medium text-text-primary leading-relaxed">{decision.action}</p>
             </div>
 
             <div className="flex justify-end">
-              <button className="flex items-center gap-2 px-4 py-2 bg-surface hover:bg-background border border-border text-[13px] font-medium text-text-primary rounded transition-colors">
+              <Link href={`/recommendations?id=${decision.id}`} className="flex items-center gap-2 px-4 py-2 bg-[var(--color-accent)] text-white border border-transparent text-[13px] font-medium rounded hover:bg-[var(--color-accent-hover)] transition-colors">
                 Review Decision
-                <ArrowRight className="w-3.5 h-3.5 text-text-muted" />
-              </button>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
           </div>
         ))}

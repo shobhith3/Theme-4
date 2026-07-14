@@ -1,4 +1,4 @@
-export type RecommendationType = "procure" | "transfer" | "reduce" | "expedite";
+export type RecommendationType = "procure" | "transfer" | "reduce" | "expedite" | "hybrid";
 export type RecommendationStatus = "pending" | "approved" | "rejected" | "executed" | "expired";
 export type UrgencyLevel = "critical" | "high" | "medium" | "low";
 
@@ -24,6 +24,18 @@ export interface Recommendation {
   sourceBranchName?: string;
   confidenceScore: number;
   timeToBreach?: string;
+  transferFeasibility?: {
+    feasible: boolean;
+    distanceKm: number;
+    travelTimeHours: number;
+    transferCost: number;
+    purchaseAvoided: number;
+    reason: string;
+  };
+  hybridDetails?: {
+    transferQty: number;
+    purchaseQty: number;
+  };
 }
 
 export type FeedEventType = "critical" | "warning" | "opportunity" | "info";

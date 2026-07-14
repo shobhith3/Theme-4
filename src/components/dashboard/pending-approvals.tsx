@@ -11,6 +11,7 @@ const typeConfig = {
   transfer: { icon: ArrowRightLeft, label: "Transfer", color: "text-success", bgColor: "bg-success/10" },
   reduce: { icon: TrendingDown, label: "Reduce", color: "text-warning", bgColor: "bg-warning/10" },
   expedite: { icon: ShoppingCart, label: "Expedite", color: "text-critical", bgColor: "bg-critical/10" },
+  hybrid: { icon: ArrowRightLeft, label: "Hybrid", color: "text-accent", bgColor: "bg-accent/10" },
 };
 
 const urgencyBadge = {

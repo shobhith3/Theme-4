@@ -1,11 +1,11 @@
 "use client";
 
-import { ArrowRight, TrendingDown } from "lucide-react";
+import { ArrowRight, TrendingDown, CheckCircle2 } from "lucide-react";
 import { StatusBadge } from "../common/status-badge";
 import Link from "next/link";
 import { useStore } from "@/store/useStore";
 
-export function PrimaryDecisionCard({ branchId }: { branchId?: string }) {
+export function PrimaryDecisionCard({ branchId, onReviewDecision }: { branchId?: string, onReviewDecision?: (id: string) => void }) {
   const recommendations = useStore((s) => s.recommendations);
   
   // Find the top critical recommendation for the branch (or globally)
@@ -44,7 +44,7 @@ export function PrimaryDecisionCard({ branchId }: { branchId?: string }) {
 
       {/* Main Title */}
       <h2 className="text-[24px] md:text-[28px] lg:text-[30px] font-[700] text-text-primary leading-[1.1] max-w-[780px] mt-4 mb-5.5">
-        {topDecision.itemName} will breach safety stock in {topDecision.urgency === "critical" ? "46 hours" : "soon"}.
+        {topDecision.itemName} will breach safety stock in {topDecision.timeToBreach || (topDecision.urgency === "critical" ? "46 hours" : "soon")}.
       </h2>
 
       {/* ZONE 2: Risk & Impact Metrics */}
@@ -59,19 +59,23 @@ export function PrimaryDecisionCard({ branchId }: { branchId?: string }) {
         </div>
         <div className="flex flex-col min-w-0 border-l border-border/40 pl-5">
           <span className="text-[28px] lg:text-[30px] font-[700] text-text-primary leading-none tabular-nums">
-            {topDecision.urgency === "critical" ? "46 hrs" : "1.2 d"}
+            {topDecision.timeToBreach || (topDecision.urgency === "critical" ? "46 hrs" : "1.2 d")}
           </span>
           <span className="text-[12px] lg:text-[13px] font-medium text-text-secondary mt-1.5">
-            Time to breach
+            Expected stock risk time
           </span>
         </div>
-        <div className="flex flex-col min-w-0 border-l border-border/40 pl-5">
+        <div className="flex flex-col min-w-0 border-l border-border/40 pl-5 group relative cursor-help w-fit">
           <span className="text-[28px] lg:text-[30px] font-[700] text-text-primary leading-none tabular-nums">
             {topDecision.confidenceScore}%
           </span>
-          <span className="text-[12px] lg:text-[13px] font-medium text-text-secondary mt-1.5">
-            Forecast confidence
+          <span className="text-[12px] lg:text-[13px] font-medium text-text-secondary mt-1.5 border-b border-dashed border-text-muted/50 pb-0.5">
+            Prediction confidence
           </span>
+          {/* Tooltip */}
+          <div className="absolute top-full left-0 mt-2 w-48 p-2 bg-text-primary text-white text-[11px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+            This score shows how reliable the forecast is based on available sales and inventory data.
+          </div>
         </div>
       </div>
 
@@ -93,12 +97,12 @@ export function PrimaryDecisionCard({ branchId }: { branchId?: string }) {
 
         {/* Strategy Title */}
         <h3 className="text-[20px] font-[700] text-text-primary tracking-tight mt-[7px]">
-          {topDecision.type === "transfer" ? "Inter-branch transfer" : topDecision.type === "procure" ? "Purchase recommendation" : "Inventory reduction"}
+          {topDecision.type === "hybrid" ? "Hybrid replenishment" : topDecision.type === "transfer" ? "Inter-branch transfer" : topDecision.type === "procure" ? "Purchase recommendation" : "Inventory reduction"}
         </h3>
 
         {/* Action Rows */}
         <div className="flex flex-col gap-2.5 mt-3.5">
-          {topDecision.sourceBranchId && (
+          {(topDecision.type === "hybrid" || topDecision.type === "transfer") && topDecision.sourceBranchId && (
             <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] gap-x-3 items-center min-h-[60px] bg-white rounded-[10px] border border-border/60 px-3.5 py-2.5">
               <div className="flex items-center justify-center">
                 <ArrowRight className="w-[17px] h-[17px] text-text-muted" />
@@ -107,11 +111,11 @@ export function PrimaryDecisionCard({ branchId }: { branchId?: string }) {
                 <span className="text-[10px] font-[600] text-text-muted uppercase tracking-[0.06em] leading-none mb-1">TRANSFER</span>
                 <span className="text-[13px] font-medium text-text-primary truncate">{topDecision.sourceBranchName} → {topDecision.branchName}</span>
               </div>
-              <span className="text-[14px] font-[700] text-text-primary tabular-nums pl-3.5">{topDecision.suggestedQty} {topDecision.unit}</span>
+              <span className="text-[14px] font-[700] text-text-primary tabular-nums pl-3.5">{topDecision.hybridDetails?.transferQty || topDecision.suggestedQty} {topDecision.unit}</span>
             </div>
           )}
 
-          {topDecision.supplierId && (
+          {(topDecision.type === "hybrid" || topDecision.type === "procure") && topDecision.supplierId && (
             <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] gap-x-3 items-center min-h-[60px] bg-white rounded-[10px] border border-border/60 px-3.5 py-2.5">
               <div className="flex items-center justify-center">
                 <TrendingDown className="w-[17px] h-[17px] text-text-muted" />
@@ -120,7 +124,7 @@ export function PrimaryDecisionCard({ branchId }: { branchId?: string }) {
                 <span className="text-[10px] font-[600] text-text-muted uppercase tracking-[0.06em] leading-none mb-1">PURCHASE</span>
                 <span className="text-[13px] font-medium text-text-primary truncate">{topDecision.supplierName}</span>
               </div>
-              <span className="text-[14px] font-[700] text-text-primary tabular-nums pl-3.5">{topDecision.suggestedQty} {topDecision.unit}</span>
+              <span className="text-[14px] font-[700] text-text-primary tabular-nums pl-3.5">{topDecision.hybridDetails?.purchaseQty || topDecision.suggestedQty} {topDecision.unit}</span>
             </div>
           )}
         </div>
@@ -141,9 +145,18 @@ export function PrimaryDecisionCard({ branchId }: { branchId?: string }) {
           <Link href={`/inventory?item=${topDecision.itemId}&branch=${topDecision.branchId}`} className="inline-flex items-center justify-center h-[42px] px-4 bg-white border border-border rounded-[9px] text-[14px] font-medium text-text-primary hover:bg-surface-hover hover:border-border-strong transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-accent)]">
             View Inventory
           </Link>
-          <Link href={`/recommendations?id=${topDecision.id}`} className="inline-flex items-center justify-center h-[42px] px-4 bg-[var(--color-accent)] text-white border border-transparent rounded-[9px] text-[14px] font-medium hover:bg-[var(--color-accent-hover)] transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-accent)]">
-            Review Decision
-          </Link>
+          {onReviewDecision ? (
+            <button 
+              onClick={() => onReviewDecision(topDecision.id)}
+              className="inline-flex items-center justify-center h-[42px] px-4 bg-[var(--color-accent)] text-white border border-transparent rounded-[9px] text-[14px] font-medium hover:bg-[var(--color-accent-hover)] transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-accent)]"
+            >
+              Review Decision
+            </button>
+          ) : (
+            <Link href={`/recommendations?id=${topDecision.id}`} className="inline-flex items-center justify-center h-[42px] px-4 bg-[var(--color-accent)] text-white border border-transparent rounded-[9px] text-[14px] font-medium hover:bg-[var(--color-accent-hover)] transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-accent)]">
+              Review Decision
+            </Link>
+          )}
         </div>
       </div>
 

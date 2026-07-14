@@ -3,7 +3,7 @@ import { Recommendation } from "@/types";
 export const mockRecommendations: Recommendation[] = [
   {
     id: "rec-001",
-    type: "procure",
+    type: "hybrid",
     itemId: "inv-hyd-001",
     itemName: "Chicken Breast",
     branchId: "branch-hyd",
@@ -13,13 +13,28 @@ export const mockRecommendations: Recommendation[] = [
     unit: "kg",
     estimatedCost: 11200,
     estimatedSavings: 0,
-    reasoning: "Current stock (8 kg) will be exhausted in ~46 hours based on trailing 7-day average daily usage of 12 kg. Weekend demand typically increases 18%. Recommended supplier: Telangana Fresh Farms (92% reliability, 1-day lead time).",
+    reasoning: "Based on current stock, weekend demand uplift, and supplier lead time, this item is expected to fall below the safety threshold before the next normal replenishment window.",
     status: "pending",
     createdAt: "2026-07-07T08:30:00Z",
     expiresAt: "2026-07-08T08:30:00Z",
     supplierId: "sup-001",
     supplierName: "Telangana Fresh Farms",
+    sourceBranchId: "branch-wgl",
+    sourceBranchName: "Warangal Hub",
     confidenceScore: 94,
+    timeToBreach: "46 hours",
+    transferFeasibility: {
+      feasible: true,
+      distanceKm: 92,
+      travelTimeHours: 2.1,
+      transferCost: 450,
+      purchaseAvoided: 2140,
+      reason: "Transfer is recommended because the source branch has excess stock, travel time is below the risk window, and transfer cost is lower than purchasing new inventory."
+    },
+    hybridDetails: {
+      transferQty: 18,
+      purchaseQty: 22
+    }
   },
   {
     id: "rec-002",

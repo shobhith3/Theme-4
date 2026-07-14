@@ -8,16 +8,21 @@ import { useStore } from "@/store/useStore";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { Recommendation } from "@/types";
+import { GuidedDecisionReview } from "@/components/decision/guided-decision-review";
+import { Activity, ChevronDown } from "lucide-react";
 
 function RecommendationsContent() {
   const recommendations = useStore(s => s.recommendations);
   const approveRecommendation = useStore(s => s.approveRecommendation);
   const rejectRecommendation = useStore(s => s.rejectRecommendation);
   const searchParams = useSearchParams();
+  const router = useRouter();
   
   const initialId = searchParams.get("id");
   const [activeTab, setActiveTab] = useState<Recommendation['status']>("pending");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isAdvancedView, setIsAdvancedView] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Switch tab if incoming initialId belongs to a different status
   useEffect(() => {
@@ -28,9 +33,15 @@ function RecommendationsContent() {
         setActiveTab(rec.status);
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedId(rec.id);
+        // Launch modal immediately in simple mode
+        if (!isAdvancedView) {
+          setIsModalOpen(true);
+          // clear query param so it doesn't reopen on refresh
+          router.replace('/recommendations');
+        }
       }
     }
-  }, [initialId, recommendations]);
+  }, [initialId, recommendations, router, isAdvancedView]);
 
   const filteredRecs = useMemo(() => {
     return recommendations.filter(r => r.status === activeTab).sort((a, b) => {
@@ -41,18 +52,14 @@ function RecommendationsContent() {
     });
   }, [recommendations, activeTab]);
 
-  // Default selection
-  useEffect(() => {
-    if (!selectedId && filteredRecs.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedId(filteredRecs[0].id);
-    } else if (filteredRecs.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedId(null);
-    }
-  }, [filteredRecs, selectedId]);
+  const selectedRec = filteredRecs.find(r => r.id === selectedId) || null;
 
-  const selectedRec = filteredRecs.find(r => r.id === selectedId) || filteredRecs[0];
+  const handleSelectDecision = (id: string) => {
+    setSelectedId(id);
+    if (!isAdvancedView) {
+      setIsModalOpen(true);
+    }
+  };
 
   const handleApprove = (id: string) => {
     approveRecommendation(id);
@@ -64,10 +71,20 @@ function RecommendationsContent() {
 
   return (
     <>
-      <PageHeader 
-        title="Decision Center" 
-        description="Review AI-generated procurement strategies ranked by urgency and business impact." 
-      />
+      <div className="flex items-center justify-between">
+        <PageHeader 
+          title="Decision Center" 
+          description="Review AI-generated procurement strategies ranked by urgency and business impact." 
+        />
+        <button
+          onClick={() => setIsAdvancedView(!isAdvancedView)}
+          className="flex items-center gap-2 px-4 py-2 bg-surface hover:bg-surface-hover border border-border rounded-full text-[13px] font-medium text-text-secondary transition-colors"
+        >
+          <Activity className="w-4 h-4" />
+          {isAdvancedView ? "Hide full analysis" : "View full analysis"}
+          <ChevronDown className={`w-4 h-4 transition-transform ${isAdvancedView ? "rotate-180" : ""}`} />
+        </button>
+      </div>
 
       <div className="flex items-center gap-6 border-b border-border mb-6">
         <button 
@@ -93,11 +110,11 @@ function RecommendationsContent() {
       <div className="flex flex-col lg:flex-row gap-6">
         
         {/* Decision List */}
-        <div className="flex flex-col gap-4 w-full lg:w-1/2 xl:w-2/5 max-h-[800px] overflow-y-auto pr-2">
+        <div className={`flex flex-col gap-4 w-full ${isAdvancedView ? 'lg:w-1/2 xl:w-2/5' : ''} max-h-[800px] overflow-y-auto pr-2`}>
           {filteredRecs.length > 0 ? filteredRecs.map((decision) => (
             <div 
               key={decision.id}
-              onClick={() => setSelectedId(decision.id)}
+              onClick={() => handleSelectDecision(decision.id)}
               className={`flex flex-col p-[20px] bg-white border rounded-[12px] cursor-pointer transition-colors ${selectedRec?.id === decision.id ? 'border-[var(--color-intelligence)] shadow-sm' : 'border-border shadow-sm hover:border-border-strong'}`}
             >
               <div className="flex items-center justify-between mb-3">
@@ -105,8 +122,17 @@ function RecommendationsContent() {
                 {decision.status === 'pending' && <span className="text-[12px] font-medium text-text-muted">{decision.timeToBreach || 'Monitor'}</span>}
               </div>
               
-              <h3 className="text-[18px] font-bold text-text-primary mb-1">{decision.itemName}</h3>
-              <span className="text-[13px] text-text-secondary mb-4">{decision.branchName}</span>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-[18px] font-bold text-text-primary mb-1">{decision.itemName}</h3>
+                  <span className="text-[13px] text-text-secondary mb-4 block">{decision.branchName}</span>
+                </div>
+                {!isAdvancedView && decision.status === 'pending' && (
+                  <button className="px-4 py-2 bg-[var(--color-accent)] text-white text-[13px] font-medium rounded-md shadow-sm">
+                    Review Decision
+                  </button>
+                )}
+              </div>
               
               <div className="flex items-center justify-between pt-4 border-t border-border/60">
                 <div className="flex flex-col">
@@ -125,9 +151,9 @@ function RecommendationsContent() {
           )}
         </div>
 
-        {/* Active Decision Detail */}
-        {selectedRec && (
-          <div className="flex flex-col w-full lg:w-1/2 xl:w-3/5 bg-white border border-border rounded-[16px] shadow-sm overflow-hidden h-fit">
+        {/* Active Decision Detail (Advanced View) */}
+        {isAdvancedView && selectedRec && (
+          <div className="flex flex-col w-full lg:w-1/2 xl:w-3/5 bg-white border border-border rounded-[16px] shadow-sm overflow-hidden h-fit animate-in fade-in slide-in-from-right-4">
             <div className="p-[24px] border-b border-border">
               <h2 className="text-[24px] font-bold text-text-primary mb-2">{selectedRec.itemName} — {selectedRec.branchName}</h2>
               <p className="text-[14px] text-text-secondary">
@@ -152,6 +178,7 @@ function RecommendationsContent() {
                     <span className="block text-[13px] font-medium text-text-primary">
                       {selectedRec.type === 'transfer' ? `Transfer ${selectedRec.suggestedQty} ${selectedRec.unit} from ${selectedRec.sourceBranchName || 'another branch'}` :
                        selectedRec.type === 'reduce' ? `Reduce next order by ${selectedRec.suggestedQty} ${selectedRec.unit}` :
+                       selectedRec.type === 'hybrid' ? `Transfer ${selectedRec.hybridDetails?.transferQty} & Purchase ${selectedRec.hybridDetails?.purchaseQty}` :
                        `Consolidate supplier order`}
                     </span>
                   </div>
@@ -181,25 +208,16 @@ function RecommendationsContent() {
                 )}
               </div>
 
-              {/* Mock alternative options for visual fidelity */}
-              <div className="flex flex-col bg-white border border-border rounded-[12px] p-[20px] opacity-70 grayscale">
-                <h3 className="text-[16px] font-bold text-text-primary mb-4">Alternative Option</h3>
-                <div className="grid grid-cols-2 gap-y-4">
-                  <div>
-                    <span className="block text-[11px] font-semibold text-text-muted uppercase mb-1">Actions</span>
-                    <span className="block text-[13px] font-medium text-text-primary">Do Nothing</span>
-                  </div>
-                  <div>
-                    <span className="block text-[11px] font-semibold text-text-muted uppercase mb-1">Risk</span>
-                    <span className="block text-[13px] font-bold text-critical">Stockout Projected</span>
-                  </div>
-                </div>
-              </div>
-
             </div>
           </div>
         )}
       </div>
+
+      <GuidedDecisionReview
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        decisionId={selectedId}
+      />
     </>
   );
 }
