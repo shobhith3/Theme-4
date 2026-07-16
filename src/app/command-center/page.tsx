@@ -6,6 +6,8 @@ import { DecisionReasoningCard } from "@/components/dashboard/decision-reasoning
 import { DecisionQueue } from "@/components/dashboard/decision-queue";
 import { MetricStrip } from "@/components/dashboard/metric-strip";
 import { RiskOutlook } from "@/components/dashboard/risk-outlook";
+import { DataSourcesCard } from "@/components/dashboard/data-sources-card";
+import { OutcomeTrackingCard } from "@/components/dashboard/outcome-tracking-card";
 import { ChevronDown, ChevronRight, Activity } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { useState } from "react";
@@ -33,9 +35,13 @@ export default function CommandCenterPage() {
           <h1 className="text-[28px] md:text-[34px] lg:text-[36px] font-[700] text-text-primary leading-[1.05] m-0">
             Good evening, Sanjay.
           </h1>
-          <p className="text-[15px] text-text-secondary mt-1.5 md:mt-2 leading-relaxed">
-            Three decisions require attention before tomorrow&apos;s supplier cutoff.
-          </p>
+          <div className="text-[15px] text-text-secondary mt-2.5 leading-relaxed flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-text-primary">3 decisions</span> need attention today.
+            <div className="w-1 h-1 rounded-full bg-border mx-1" />
+            <span className="font-semibold text-critical">₹84,200</span> revenue at risk.
+            <div className="w-1 h-1 rounded-full bg-border mx-1" />
+            <span className="font-semibold text-success">₹18,450</span> savings opportunities.
+          </div>
         </div>
         
         <div className="flex flex-col md:items-end gap-1.5 shrink-0">
@@ -69,16 +75,11 @@ export default function CommandCenterPage() {
       </div>
 
       {/* SECTION 2: Executive Intelligence Brief */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 w-full mb-9 items-start">
-        <div className="xl:col-span-2 min-w-0">
-          <PrimaryDecisionCard 
-            branchId={branchId} 
-            onReviewDecision={(id) => setSelectedDecisionId(id)} 
-          />
-        </div>
-        <div className="xl:col-span-1 min-w-0">
-          <DecisionReasoningCard branchId={branchId} />
-        </div>
+      <div className="w-full max-w-3xl mb-9">
+        <PrimaryDecisionCard 
+          branchId={branchId} 
+          onReviewDecision={(id) => setSelectedDecisionId(id)} 
+        />
       </div>
 
       {/* Advanced View Toggle */}
@@ -106,8 +107,18 @@ export default function CommandCenterPage() {
           </div>
 
           {/* SECTION 5: Risk & Opportunity Outlook */}
-          <div>
+          <div className="mb-8">
             <RiskOutlook branchId={branchId} />
+          </div>
+
+          {/* SECTION 6: Credibility & Narrative (Data Sources & Outcomes) */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 w-full mb-8 items-stretch">
+            <div className="xl:col-span-1 min-w-0">
+              <OutcomeTrackingCard />
+            </div>
+            <div className="xl:col-span-1 min-w-0">
+              <DataSourcesCard />
+            </div>
           </div>
         </div>
       )}

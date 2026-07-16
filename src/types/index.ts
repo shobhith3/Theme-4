@@ -11,3 +11,4 @@ export type {
   FeedEventType,
 } from "./recommendation";
 export type { PurchaseOrder, POLineItem, POStatus } from "./purchase-order";
+export type { StockTransaction, StockTransactionType } from "./ledger";

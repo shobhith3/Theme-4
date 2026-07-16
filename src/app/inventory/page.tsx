@@ -8,6 +8,8 @@ import { useStore } from "@/store/useStore";
 import { Filter, Search, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState, useEffect } from "react";
+import { StockIntakeCenter } from "@/components/inventory/stock-intake-center";
+import { StockLedgerTable } from "@/components/inventory/stock-ledger-table";
 import { InventoryItem } from "@/types";
 
 function InventoryContent() {
@@ -21,6 +23,8 @@ function InventoryContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("all");
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [isIntakeOpen, setIsIntakeOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"current" | "ledger">("current");
 
   // Initialize from URL params once
   useEffect(() => {
@@ -150,11 +154,37 @@ function InventoryContent() {
               {selectedBranch === "all" ? "Branch" : branches.find(b => b.id === selectedBranch)?.name || "Branch"}
             </button>
           </div>
+          <button 
+            onClick={() => setIsIntakeOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--color-accent)] border border-transparent rounded-md text-[13px] font-bold text-white hover:bg-[var(--color-accent-hover)] transition-colors shadow-sm ml-2"
+          >
+            Update Stock
+          </button>
         </div>
       </div>
 
-      {/* Data Table */}
-      <DataTable data={filteredData} columns={columns} onRowClick={(item) => setSelectedItem(item)} />
+      {/* Tabs */}
+      <div className="flex items-center gap-6 mb-4 border-b border-border">
+        <button 
+          onClick={() => setActiveTab("current")}
+          className={`pb-3 text-[14px] font-bold transition-colors border-b-2 ${activeTab === "current" ? "text-text-primary border-[var(--color-accent)]" : "text-text-muted border-transparent hover:text-text-primary"}`}
+        >
+          Current Stock
+        </button>
+        <button 
+          onClick={() => setActiveTab("ledger")}
+          className={`pb-3 text-[14px] font-bold transition-colors border-b-2 ${activeTab === "ledger" ? "text-text-primary border-[var(--color-accent)]" : "text-text-muted border-transparent hover:text-text-primary"}`}
+        >
+          Transaction Ledger
+        </button>
+      </div>
+
+      {/* Content */}
+      {activeTab === "current" ? (
+        <DataTable data={filteredData} columns={columns} onRowClick={(item) => setSelectedItem(item)} />
+      ) : (
+        <StockLedgerTable />
+      )}
 
       {/* Detail Drawer overlay */}
       {selectedItem && (
@@ -203,6 +233,9 @@ function InventoryContent() {
           </div>
         </div>
       )}
+
+      {/* Stock Intake Center Modal */}
+      <StockIntakeCenter isOpen={isIntakeOpen} onClose={() => setIsIntakeOpen(false)} />
     </>
   );
 }

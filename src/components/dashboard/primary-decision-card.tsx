@@ -62,7 +62,7 @@ export function PrimaryDecisionCard({ branchId, onReviewDecision }: { branchId?:
             {topDecision.timeToBreach || (topDecision.urgency === "critical" ? "46 hrs" : "1.2 d")}
           </span>
           <span className="text-[12px] lg:text-[13px] font-medium text-text-secondary mt-1.5">
-            Expected stock risk time
+            Stock risk time
           </span>
         </div>
         <div className="flex flex-col min-w-0 border-l border-border/40 pl-5 group relative cursor-help w-fit">
@@ -127,6 +127,16 @@ export function PrimaryDecisionCard({ branchId, onReviewDecision }: { branchId?:
               <span className="text-[14px] font-[700] text-text-primary tabular-nums pl-3.5">{topDecision.hybridDetails?.purchaseQty || topDecision.suggestedQty} {topDecision.unit}</span>
             </div>
           )}
+        </div>
+
+        {/* Narrative Reason */}
+        <div className="mt-4 pt-3.5 border-t border-[#E4EDE8]/80 text-[13px] text-text-secondary leading-relaxed">
+          <strong className="text-text-primary">Why:</strong>{" "}
+          {topDecision.type === "hybrid" 
+            ? "Transfer alone is not enough. Purchase alone may overstock. Hybrid gives the best cost-risk balance."
+            : topDecision.type === "transfer"
+            ? "Transfer reduces purchase cost fully and donor branch remains safe."
+            : "Local purchase is necessary because transfer from nearest branch is not feasible in time."}
         </div>
       </div>
 

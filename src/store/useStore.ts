@@ -9,7 +9,9 @@ import type {
   PurchaseOrder, 
   FeedEvent,
   RecommendationStatus,
-  POStatus
+  POStatus,
+  StockTransaction,
+  StockTransactionType
 } from "@/types";
 
 // Import Initial Mock Data
@@ -90,19 +92,35 @@ export interface StoreState {
   purchaseOrders: PurchaseOrder[];
   feedEvents: (FeedEvent & { read?: boolean })[];
   settings: AppSettings;
+  stockTransactions: StockTransaction[];
   
   // Actions
   updateSettings: (settings: Partial<AppSettings>) => void;
   markFeedEventRead: (id: string) => void;
   markAllFeedEventsRead: () => void;
   
-  approveRecommendation: (id: string) => void;
+  approveRecommendation: (id: string, customPayload?: { type?: "procure" | "transfer" | "hybrid" | "reduce", purchaseQty?: number, transferQty?: number }) => void;
   rejectRecommendation: (id: string, reason?: string) => void;
   modifyRecommendation: (id: string, payload: Partial<Recommendation>) => void;
   
   createPurchaseOrder: (po: Omit<PurchaseOrder, "id" | "poNumber" | "createdAt">) => void;
   updatePurchaseOrderStatus: (id: string, status: POStatus) => void;
   
+  recordStockTransaction: (payload: {
+    type: StockTransactionType;
+    itemId: string;
+    itemName: string;
+    branchId: string;
+    branchName: string;
+    quantityChange: number;
+    unit: string;
+    reason?: string;
+    reference?: string;
+    createdBy: string;
+  }) => void;
+  
+  addInventoryItem: (item: InventoryItem) => void;
+
   runScenario: (itemId: string, branchId: string, params: ScenarioParams) => void;
   resetToDefault: () => void;
 }
@@ -125,6 +143,7 @@ export const useStore = create<StoreState>()(
       purchaseOrders: initialPurchaseOrders,
       feedEvents: mockFeedEvents,
       settings: defaultSettings,
+      stockTransactions: [],
 
       updateSettings: (newSettings) =>
         set((state) => ({
@@ -143,18 +162,35 @@ export const useStore = create<StoreState>()(
           feedEvents: state.feedEvents.map((e) => ({ ...e, read: true })),
         })),
 
-      approveRecommendation: (id) => {
+      approveRecommendation: (id, customPayload) => {
         set((state) => {
           const rec = state.recommendations.find((r) => r.id === id);
           if (!rec) return state;
 
-          const updatedRecs = state.recommendations.map((r) =>
-            r.id === id ? { ...r, status: "approved" as RecommendationStatus } : r
-          );
+          const updatedRecs = state.recommendations.map((r) => {
+            if (r.id === id) {
+              return { 
+                ...r, 
+                status: "approved" as RecommendationStatus,
+                ...(customPayload ? {
+                  type: customPayload.type || r.type,
+                  suggestedQty: customPayload.purchaseQty || customPayload.transferQty || r.suggestedQty,
+                  hybridDetails: customPayload.type === 'hybrid' ? {
+                    transferQty: customPayload.transferQty || r.hybridDetails?.transferQty || 0,
+                    purchaseQty: customPayload.purchaseQty || r.hybridDetails?.purchaseQty || 0,
+                  } : r.hybridDetails
+                } : {})
+              };
+            }
+            return r;
+          });
 
-          // If it's a procure recommendation, auto-generate a draft PO
+          // If it's a procure or hybrid recommendation, auto-generate a draft PO
+          const finalType = customPayload?.type || rec.type;
+          const finalPurchaseQty = customPayload?.purchaseQty || (finalType === 'hybrid' ? rec.hybridDetails?.purchaseQty : rec.suggestedQty) || 0;
+
           let newPOs = state.purchaseOrders;
-          if (rec.type === "procure" && rec.supplierId) {
+          if ((finalType === "procure" || finalType === "hybrid") && rec.supplierId && finalPurchaseQty > 0) {
             const supplier = state.suppliers.find((s) => s.id === rec.supplierId);
             const po: PurchaseOrder = {
               id: `PO-${Date.now()}`,
@@ -171,9 +207,9 @@ export const useStore = create<StoreState>()(
                 {
                   itemId: rec.itemId,
                   itemName: rec.itemName,
-                  quantity: rec.suggestedQty,
+                  quantity: finalPurchaseQty,
                   unit: rec.unit,
-                  unitPrice: rec.estimatedCost / rec.suggestedQty,
+                  unitPrice: rec.estimatedCost / (rec.suggestedQty || 1),
                   totalPrice: rec.estimatedCost,
                 },
               ],
@@ -230,18 +266,53 @@ export const useStore = create<StoreState>()(
           const forecastIdx = forecasts.findIndex(f => f.itemId === itemId && f.branchId === branchId);
           if (forecastIdx > -1) {
             const f = { ...forecasts[forecastIdx] };
-            // Example modification: if demand increases, breach date is closer
-            // For now, we won't mutate the raw mock data structure aggressively, just enough to show UI changes if needed
-            // Actually, we can store a transient "scenarioResult" in the store or component.
-            // Since the prompt says "recalculate scenario output... Display changes... keep result stable",
-            // It might be better to handle scenario state locally in the component so it doesn't permanently overwrite actual forecast data,
-            // OR store active scenario results in the store. 
-            // We'll let the component handle the temporary math instead of mutating the global store for "what-if" scenarios,
-            // But we have this method here if we want to save it globally.
           }
           return { forecasts };
         });
       },
+
+      recordStockTransaction: (payload) => 
+        set((state) => {
+          // Find current stock
+          const item = state.inventory.find(i => i.id === payload.itemId && i.branchId === payload.branchId);
+          const currentStock = item ? item.currentStock : 0;
+          const balanceAfter = currentStock + payload.quantityChange;
+
+          const newTransaction: StockTransaction = {
+            id: `txn-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            date: new Date().toISOString(),
+            type: payload.type,
+            itemId: payload.itemId,
+            itemName: payload.itemName,
+            branchId: payload.branchId,
+            branchName: payload.branchName,
+            quantityIn: payload.quantityChange > 0 ? payload.quantityChange : 0,
+            quantityOut: payload.quantityChange < 0 ? Math.abs(payload.quantityChange) : 0,
+            balanceAfter,
+            unit: payload.unit,
+            reason: payload.reason,
+            reference: payload.reference,
+            createdBy: payload.createdBy
+          };
+
+          // Update inventory
+          const updatedInventory = state.inventory.map(i => {
+            if (i.id === payload.itemId && i.branchId === payload.branchId) {
+              return { ...i, currentStock: balanceAfter };
+            }
+            return i;
+          });
+
+          return {
+            inventory: updatedInventory,
+            stockTransactions: [newTransaction, ...state.stockTransactions]
+          };
+        }),
+
+      addInventoryItem: (item) =>
+        set((state) => ({
+          inventory: [item, ...state.inventory]
+        })),
 
       resetToDefault: () =>
         set({
