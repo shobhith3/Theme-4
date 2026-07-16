@@ -25,7 +25,7 @@ export function StockIntakeCenter({ isOpen, onClose }: { isOpen: boolean; onClos
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">
           <div className="flex items-center gap-3">
@@ -35,13 +35,13 @@ export function StockIntakeCenter({ isOpen, onClose }: { isOpen: boolean; onClos
               </button>
             )}
             <h2 className="text-[18px] font-bold text-text-primary">
-              {mode === "menu" ? "Stock Intake Center" : 
-               mode === "receive" ? "Receive Stock" :
-               mode === "add" ? "Add New Item" :
-               mode === "import" ? "Import Excel" :
-               mode === "invoice" ? "Upload Invoice" :
-               mode === "transfer" ? "Transfer Stock" :
-               mode === "audit" ? "Correct Stock Count" : "Record Loss"}
+              {mode === "menu" ? "Stock Intake Center" :
+                mode === "receive" ? "Receive Stock" :
+                  mode === "add" ? "Add New Item" :
+                    mode === "import" ? "Import Excel" :
+                      mode === "invoice" ? "Upload Invoice" :
+                        mode === "transfer" ? "Transfer Stock" :
+                          mode === "audit" ? "Correct Stock Count" : "Record Loss"}
             </h2>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-surface rounded-md text-text-muted transition-colors">
@@ -119,7 +119,7 @@ function ReceiveForm({ onSuccess }: { onSuccess: () => void }) {
   const [branchId, setBranchId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [qty, setQty] = useState("");
-  
+
   const selectedItem = inventory.find(i => i.id === itemId);
   const isHighQty = selectedItem && Number(qty) > selectedItem.maxStock;
 
@@ -132,7 +132,7 @@ function ReceiveForm({ onSuccess }: { onSuccess: () => void }) {
       itemId: selectedItem.id,
       itemName: selectedItem.name,
       branchId,
-      branchName: branches.find(b=>b.id===branchId)?.name || "",
+      branchName: branches.find(b => b.id === branchId)?.name || "",
       quantityChange: Number(qty),
       unit: selectedItem.unit,
       reference: "Manual Receive",
@@ -159,7 +159,7 @@ function ReceiveForm({ onSuccess }: { onSuccess: () => void }) {
           </select>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-[12px] font-semibold text-text-primary">Supplier *</label>
@@ -203,22 +203,26 @@ function AddForm({ onSuccess }: { onSuccess: () => void }) {
     addInventoryItem({
       id,
       name,
-      category: "General",
+      category: "other",
       branchId,
       currentStock: 0, // start 0, tx adds it
       minStock: 10,
       maxStock: 100,
-      unit: "pcs",
+      unit: "units",
       avgDailyUsage: 1,
-      unitCost: 100
+      unitCost: 100,
+      reorderPoint: 20,
+      lastRestocked: new Date().toISOString(),
+      expiryDate: null,
+      shelfLifeDays: null
     });
-    
+
     recordStockTransaction({
       type: "opening_stock",
       itemId: id,
       itemName: name,
       branchId,
-      branchName: branches.find(b=>b.id===branchId)?.name || "",
+      branchName: branches.find(b => b.id === branchId)?.name || "",
       quantityChange: Number(qty),
       unit: "pcs",
       reason: "Initial Stock",
@@ -274,7 +278,7 @@ function ImportForm({ onSuccess }: { onSuccess: () => void }) {
           Select File
         </label>
       </div>
-      {file && <p className="text-[13px] text-success font-medium flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> {file.name} ready for import.</p>}
+      {file && <p className="text-[13px] text-success font-medium flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> {file.name} ready for import.</p>}
       <button type="button" className="text-[12px] font-medium text-[var(--color-accent)] hover:underline text-left">Download Sample CSV</button>
       <button disabled={!file} type="submit" className="mt-2 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 text-white rounded-xl font-bold text-[14px] transition-colors">
         Confirm Import
@@ -372,8 +376,8 @@ function TransferForm({ onSuccess }: { onSuccess: () => void }) {
     e.preventDefault();
     if (!selectedItem || !destId || sourceId === destId) return;
 
-    const sourceBranch = branches.find(b=>b.id===sourceId)?.name || "";
-    const destBranch = branches.find(b=>b.id===destId)?.name || "";
+    const sourceBranch = branches.find(b => b.id === sourceId)?.name || "";
+    const destBranch = branches.find(b => b.id === destId)?.name || "";
 
     recordStockTransaction({
       type: "transfer_out",
@@ -398,7 +402,7 @@ function TransferForm({ onSuccess }: { onSuccess: () => void }) {
       reference: `From ${sourceBranch}`,
       createdBy: "Current User"
     });
-    
+
     onSuccess();
   };
 
@@ -408,8 +412,8 @@ function TransferForm({ onSuccess }: { onSuccess: () => void }) {
         <label className="text-[12px] font-semibold text-text-primary">Item to Transfer *</label>
         <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={itemId} onChange={e => setItemId(e.target.value)}>
           <option value="">Select Item</option>
-          {Array.from(new Set(inventory.map(i=>i.name))).map(name => {
-            const id = inventory.find(i=>i.name===name)?.id;
+          {Array.from(new Set(inventory.map(i => i.name))).map(name => {
+            const id = inventory.find(i => i.name === name)?.id;
             return <option key={id} value={id}>{name}</option>;
           })}
         </select>
@@ -465,13 +469,13 @@ function AuditForm({ onSuccess }: { onSuccess: () => void }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedItem) return;
-    
+
     recordStockTransaction({
       type: "adjustment",
       itemId: selectedItem.id,
       itemName: selectedItem.name,
       branchId: selectedItem.branchId,
-      branchName: branches.find(b=>b.id===selectedItem.branchId)?.name || "",
+      branchName: branches.find(b => b.id === selectedItem.branchId)?.name || "",
       quantityChange: diff,
       unit: selectedItem.unit,
       reason: "Physical audit correction",
@@ -486,7 +490,7 @@ function AuditForm({ onSuccess }: { onSuccess: () => void }) {
         <label className="text-[12px] font-semibold text-text-primary">Item to Correct *</label>
         <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={itemId} onChange={e => setItemId(e.target.value)}>
           <option value="">Select Item</option>
-          {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({branches.find(b=>b.id===i.branchId)?.name})</option>)}
+          {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({branches.find(b => b.id === i.branchId)?.name})</option>)}
         </select>
       </div>
 
@@ -529,13 +533,13 @@ function LossForm({ onSuccess }: { onSuccess: () => void }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedItem) return;
-    
+
     recordStockTransaction({
       type: reason as any,
       itemId: selectedItem.id,
       itemName: selectedItem.name,
       branchId: selectedItem.branchId,
-      branchName: branches.find(b=>b.id===selectedItem.branchId)?.name || "",
+      branchName: branches.find(b => b.id === selectedItem.branchId)?.name || "",
       quantityChange: -Number(qty),
       unit: selectedItem.unit,
       reason: "Recorded manually",
@@ -550,7 +554,7 @@ function LossForm({ onSuccess }: { onSuccess: () => void }) {
         <label className="text-[12px] font-semibold text-text-primary">Item *</label>
         <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={itemId} onChange={e => setItemId(e.target.value)}>
           <option value="">Select Item</option>
-          {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({branches.find(b=>b.id===i.branchId)?.name})</option>)}
+          {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({branches.find(b => b.id === i.branchId)?.name})</option>)}
         </select>
       </div>
 

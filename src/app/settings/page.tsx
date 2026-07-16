@@ -8,11 +8,11 @@ import { CheckCircle2 } from "lucide-react";
 
 export default function SettingsPage() {
   const { settings, updateSettings } = useStore();
-  
+
   const [orgName, setOrgName] = useState(settings.organizationName);
   const [currency, setCurrency] = useState(settings.currency);
   const [leadTime, setLeadTime] = useState(settings.leadTimeBuffer);
-  
+
   const [showToast, setShowToast] = useState(false);
 
   // Sync state if it changes externally
@@ -31,16 +31,16 @@ export default function SettingsPage() {
       currency: currency,
       leadTimeBuffer: Number(leadTime),
     });
-    
+
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   };
 
   return (
     <PageContainer>
-      <PageHeader 
-        title="Settings" 
-        description="Manage organizational preferences, users, and platform configuration." 
+      <PageHeader
+        title="Settings"
+        description="Manage organizational preferences, users, and platform configuration."
       />
 
       {/* Toast Notification */}
@@ -50,7 +50,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-8">
-        
+
         {/* Settings Navigation */}
         <div className="w-full md:w-64 shrink-0">
           <nav className="flex flex-col gap-1">
@@ -81,21 +81,21 @@ export default function SettingsPage() {
         {/* Settings Content Area */}
         <div className="flex-1 bg-white border border-border rounded-[16px] p-[32px] shadow-sm h-fit">
           <h2 className="text-[20px] font-bold text-text-primary mb-6">Organization Profile</h2>
-          
+
           <div className="flex flex-col gap-6 max-w-xl">
             <div className="flex flex-col gap-2">
               <label className="text-[13px] font-semibold text-text-primary">Company Name</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
                 className="w-full px-3 py-2 bg-white border border-border rounded-md text-[14px] text-text-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-[var(--color-accent)]"
               />
             </div>
-            
+
             <div className="flex flex-col gap-2">
               <label className="text-[13px] font-semibold text-text-primary">Primary Currency</label>
-              <select 
+              <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
                 className="w-full px-3 py-2 bg-white border border-border rounded-md text-[14px] text-text-primary focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-[var(--color-accent)]"
@@ -107,8 +107,8 @@ export default function SettingsPage() {
 
             <div className="flex flex-col gap-2">
               <label className="text-[13px] font-semibold text-text-primary">Global Lead Time Buffer (Days)</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 min="0"
                 value={leadTime}
                 onChange={(e) => setLeadTime(Number(e.target.value))}

@@ -1,12 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { 
-  Branch, 
-  InventoryItem, 
-  ItemForecast, 
-  Recommendation, 
-  Supplier, 
-  PurchaseOrder, 
+import type {
+  Branch,
+  InventoryItem,
+  ItemForecast,
+  Recommendation,
+  Supplier,
+  PurchaseOrder,
   FeedEvent,
   RecommendationStatus,
   POStatus,
@@ -93,19 +93,19 @@ export interface StoreState {
   feedEvents: (FeedEvent & { read?: boolean })[];
   settings: AppSettings;
   stockTransactions: StockTransaction[];
-  
+
   // Actions
   updateSettings: (settings: Partial<AppSettings>) => void;
   markFeedEventRead: (id: string) => void;
   markAllFeedEventsRead: () => void;
-  
+
   approveRecommendation: (id: string, customPayload?: { type?: "procure" | "transfer" | "hybrid" | "reduce", purchaseQty?: number, transferQty?: number }) => void;
   rejectRecommendation: (id: string, reason?: string) => void;
   modifyRecommendation: (id: string, payload: Partial<Recommendation>) => void;
-  
+
   createPurchaseOrder: (po: Omit<PurchaseOrder, "id" | "poNumber" | "createdAt">) => void;
   updatePurchaseOrderStatus: (id: string, status: POStatus) => void;
-  
+
   recordStockTransaction: (payload: {
     type: StockTransactionType;
     itemId: string;
@@ -118,7 +118,7 @@ export interface StoreState {
     reference?: string;
     createdBy: string;
   }) => void;
-  
+
   addInventoryItem: (item: InventoryItem) => void;
 
   runScenario: (itemId: string, branchId: string, params: ScenarioParams) => void;
@@ -169,8 +169,8 @@ export const useStore = create<StoreState>()(
 
           const updatedRecs = state.recommendations.map((r) => {
             if (r.id === id) {
-              return { 
-                ...r, 
+              return {
+                ...r,
                 status: "approved" as RecommendationStatus,
                 ...(customPayload ? {
                   type: customPayload.type || r.type,
@@ -271,7 +271,7 @@ export const useStore = create<StoreState>()(
         });
       },
 
-      recordStockTransaction: (payload) => 
+      recordStockTransaction: (payload) =>
         set((state) => {
           // Find current stock
           const item = state.inventory.find(i => i.id === payload.itemId && i.branchId === payload.branchId);

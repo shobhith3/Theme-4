@@ -21,15 +21,14 @@ const navigation = [
   {
     group: "Overview",
     items: [
-      { label: "Command Center", href: "/command-center", icon: LayoutDashboard },
+      { label: "Today's Decisions", href: "/command-center", icon: LayoutDashboard },
     ]
   },
   {
     group: "Intelligence",
     items: [
       { label: "Inventory", href: "/inventory", icon: Package },
-      { label: "Forecasts", href: "/forecasting", icon: TrendingUp },
-      { label: "Decisions", href: "/recommendations", icon: Lightbulb },
+      { label: "Stock Intake", href: "/stock-intake", icon: CheckCircle },
     ]
   },
   {
@@ -41,14 +40,15 @@ const navigation = [
   {
     group: "Execution",
     items: [
-      { label: "Approvals", href: "/approvals", icon: CheckCircle },
-      { label: "Orders", href: "/purchase-orders", icon: FileText },
+      { label: "Purchase Orders", href: "/purchase-orders", icon: FileText },
+      { label: "Transfers", href: "/transfers", icon: Truck },
+      { label: "Forecasts", href: "/forecasting", icon: TrendingUp },
     ]
   },
   {
     group: "System",
     items: [
-      { label: "Settings", href: "/settings", icon: Settings },
+      { label: "Settings / Rules", href: "/settings", icon: Settings },
     ]
   }
 ];
@@ -82,9 +82,9 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
         {isCollapsed && (
           <BrainCircuit className="w-[20px] h-[20px] text-white mx-auto" />
         )}
-        
+
         {onToggle && (
-          <button 
+          <button
             onClick={onToggle}
             className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-[var(--color-sidebar-text-muted)] hover:text-white shrink-0"
             aria-label="Toggle Sidebar"

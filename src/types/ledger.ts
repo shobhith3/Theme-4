@@ -1,4 +1,4 @@
-export type StockTransactionType = 
+export type StockTransactionType =
   | 'opening_stock'
   | 'receive_stock'
   | 'transfer_in'

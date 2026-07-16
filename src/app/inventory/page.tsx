@@ -16,7 +16,7 @@ function InventoryContent() {
   const searchParams = useSearchParams();
   const inventory = useStore((s) => s.inventory);
   const branches = useStore((s) => s.branches);
-  
+
   const initialSearch = searchParams.get("item") || "";
   const initialBranch = searchParams.get("branch") || "all";
 
@@ -25,9 +25,11 @@ function InventoryContent() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [isIntakeOpen, setIsIntakeOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"current" | "ledger">("current");
+  const [isMounted, setIsMounted] = useState(false);
 
   // Initialize from URL params once
   useEffect(() => {
+    setIsMounted(true);
     if (initialSearch) {
       // the param is an ID, find the name or just set it
       const item = inventory.find(i => i.id === initialSearch);
@@ -42,8 +44,8 @@ function InventoryContent() {
 
   const filteredData = useMemo(() => {
     return inventory.filter(item => {
-      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            item.category.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.category.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesBranch = selectedBranch === "all" || item.branchId === selectedBranch;
       return matchesSearch && matchesBranch;
     });
@@ -57,14 +59,16 @@ function InventoryContent() {
     { header: "Incoming", cell: (item: InventoryItem) => `0 ${item.unit}`, align: "right" as const },
     { header: "Days Cover", cell: (item: InventoryItem) => `${item.avgDailyUsage > 0 ? (item.currentStock / item.avgDailyUsage).toFixed(0) : 'N/A'}d`, align: "right" as const },
     { header: "Safety Stock", cell: (item: InventoryItem) => `${item.minStock} ${item.unit}`, align: "right" as const },
-    { header: "Demand Trend", cell: (item: InventoryItem) => (
+    {
+      header: "Demand Trend", cell: (item: InventoryItem) => (
         <span className={"text-info"}>
           +5%
         </span>
-      ), align: "right" as const },
-    { 
-      header: "Projected Status", 
-      cell: (item: InventoryItem) => <StatusBadge status={item.currentStock <= item.minStock ? 'Critical' : item.currentStock <= item.minStock * 1.5 ? 'High' : 'Monitored'} /> 
+      ), align: "right" as const
+    },
+    {
+      header: "Projected Status",
+      cell: (item: InventoryItem) => <StatusBadge status={item.currentStock <= item.minStock ? 'Critical' : item.currentStock <= item.minStock * 1.5 ? 'High' : 'Monitored'} />
     },
     {
       header: "Action",
@@ -73,7 +77,7 @@ function InventoryContent() {
         return (
           <div className="flex items-center gap-3 justify-end">
             {rec ? (
-              <a 
+              <a
                 href={`/recommendations?id=${rec.id}`}
                 onClick={(e) => e.stopPropagation()}
                 className="text-[13px] font-medium text-[var(--color-accent)] hover:underline"
@@ -81,7 +85,7 @@ function InventoryContent() {
                 Review Decision
               </a>
             ) : null}
-            <button 
+            <button
               onClick={(e) => { e.stopPropagation(); setSelectedItem(item); }}
               className="text-[13px] font-medium text-text-secondary hover:text-text-primary hover:underline"
             >
@@ -98,11 +102,15 @@ function InventoryContent() {
   const overstockValue = inventory.filter(i => i.currentStock > i.maxStock).reduce((sum, item) => sum + ((item.currentStock - item.maxStock) * (item.unitCost || 0)), 0);
   const atRiskCount = inventory.filter(i => i.currentStock <= i.minStock * 1.5).length;
 
+  if (!isMounted) {
+    return null; // Prevent hydration mismatch
+  }
+
   return (
     <>
-      <PageHeader 
-        title="Inventory Network" 
-        description="Monitor stock health, days of cover, incoming supply, and predicted risk across every location." 
+      <PageHeader
+        title="Inventory Network"
+        description="Monitor stock health, days of cover, incoming supply, and predicted risk across every location."
       />
 
       {/* Top Summary Strip */}
@@ -129,9 +137,9 @@ function InventoryContent() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2 px-3 py-2 bg-white border border-border rounded-md w-full max-w-sm focus-within:border-border-strong focus-within:ring-1 focus-within:ring-[var(--color-accent)] transition-all">
           <Search className="w-4 h-4 text-text-muted" />
-          <input 
-            type="text" 
-            placeholder="Search items..." 
+          <input
+            type="text"
+            placeholder="Search items..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="bg-transparent border-none outline-none text-[13px] text-text-primary w-full placeholder:text-text-muted"
@@ -154,7 +162,7 @@ function InventoryContent() {
               {selectedBranch === "all" ? "Branch" : branches.find(b => b.id === selectedBranch)?.name || "Branch"}
             </button>
           </div>
-          <button 
+          <button
             onClick={() => setIsIntakeOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-[var(--color-accent)] border border-transparent rounded-md text-[13px] font-bold text-white hover:bg-[var(--color-accent-hover)] transition-colors shadow-sm ml-2"
           >
@@ -165,13 +173,13 @@ function InventoryContent() {
 
       {/* Tabs */}
       <div className="flex items-center gap-6 mb-4 border-b border-border">
-        <button 
+        <button
           onClick={() => setActiveTab("current")}
           className={`pb-3 text-[14px] font-bold transition-colors border-b-2 ${activeTab === "current" ? "text-text-primary border-[var(--color-accent)]" : "text-text-muted border-transparent hover:text-text-primary"}`}
         >
           Current Stock
         </button>
-        <button 
+        <button
           onClick={() => setActiveTab("ledger")}
           className={`pb-3 text-[14px] font-bold transition-colors border-b-2 ${activeTab === "ledger" ? "text-text-primary border-[var(--color-accent)]" : "text-text-muted border-transparent hover:text-text-primary"}`}
         >
@@ -223,11 +231,11 @@ function InventoryContent() {
                 </div>
               </div>
               <div className="flex flex-col gap-3 p-4 bg-surface rounded-xl border border-border/50">
-                 <h4 className="text-[13px] font-bold uppercase tracking-wider text-text-muted">AI Insights</h4>
-                 <p className="text-[14px] text-text-secondary leading-relaxed">
-                   Demand is trending up by 5%. 
-                   {selectedItem.currentStock <= selectedItem.minStock * 1.5 ? ' Risk of stockout detected.' : ' Inventory levels are stable.'}
-                 </p>
+                <h4 className="text-[13px] font-bold uppercase tracking-wider text-text-muted">AI Insights</h4>
+                <p className="text-[14px] text-text-secondary leading-relaxed">
+                  Demand is trending up by 5%.
+                  {selectedItem.currentStock <= selectedItem.minStock * 1.5 ? ' Risk of stockout detected.' : ' Inventory levels are stable.'}
+                </p>
               </div>
             </div>
           </div>

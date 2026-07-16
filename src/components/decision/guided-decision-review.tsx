@@ -2,8 +2,8 @@
 
 import { useStore } from "@/store/useStore";
 import { useState, useEffect } from "react";
-import { 
-  AlertTriangle, ArrowRight, CheckCircle2, X, TrendingDown, Clock, Activity, 
+import {
+  AlertTriangle, ArrowRight, CheckCircle2, X, TrendingDown, Clock, Activity,
   Building2, Info, ShoppingCart, Truck, ShieldAlert, Edit2, FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,16 +27,16 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
   const approveRecommendation = useStore((s) => s.approveRecommendation);
   const rejectRecommendation = useStore((s) => s.rejectRecommendation);
   const inventory = useStore((s) => s.inventory);
-  
+
   const decision = recommendations.find((r) => r.id === decisionId);
   const itemInventory = inventory.find(i => i.id === decision?.itemId && i.branchId === decision?.branchId);
-  
+
   // Local state for Step 2 and 3
   const [selectedStrategy, setSelectedStrategy] = useState<StrategyOption>("hybrid");
   const [isModifying, setIsModifying] = useState(false);
   const [transferQty, setTransferQty] = useState(18);
   const [purchaseQty, setPurchaseQty] = useState(22);
-  
+
   // Success / Reject states
   const [isSuccess, setIsSuccess] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
@@ -123,20 +123,20 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
 
           <div className="flex flex-col gap-3">
             {(selectedStrategy === "procure" || selectedStrategy === "hybrid") && (
-              <button 
+              <button
                 onClick={() => { onClose(); router.push('/purchase-orders'); }}
                 className="flex items-center justify-center gap-2 w-full h-[44px] bg-white border border-border rounded-lg text-[14px] font-medium text-text-primary hover:bg-surface-hover transition-colors"
               >
                 <FileText className="w-4 h-4 text-text-muted" /> View Purchase Order
               </button>
             )}
-            <button 
+            <button
               onClick={() => { onClose(); router.push('/approvals'); }}
               className="flex items-center justify-center gap-2 w-full h-[44px] bg-white border border-border rounded-lg text-[14px] font-medium text-text-primary hover:bg-surface-hover transition-colors"
             >
               <CheckCircle2 className="w-4 h-4 text-text-muted" /> Go to Approval Center
             </button>
-            <button 
+            <button
               onClick={() => { onClose(); router.push('/command-center'); }}
               className="flex items-center justify-center gap-2 w-full h-[44px] bg-[var(--color-sidebar-bg)] text-white rounded-lg text-[14px] font-semibold hover:bg-black transition-colors"
             >
@@ -150,7 +150,7 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div 
+      <div
         className="flex flex-col bg-surface border border-border sm:rounded-2xl shadow-2xl overflow-hidden relative"
         style={{ width: 'min(940px, calc(100vw - 64px))', maxHeight: 'calc(100vh - 80px)' }}
         onClick={e => e.stopPropagation()}
@@ -158,7 +158,7 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        
+
         {/* Header Area */}
         <div className="flex items-center justify-between px-8 py-5 border-b border-border bg-white shrink-0">
           <div className="flex items-center gap-4 flex-wrap">
@@ -172,8 +172,8 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-critical/10 text-critical text-[12px] font-bold uppercase tracking-wider">
               <ShieldAlert className="w-4 h-4" /> Critical
             </div>
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="w-9 h-9 flex items-center justify-center text-text-muted hover:bg-surface-hover hover:text-text-primary rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-text-primary"
               aria-label="Close decision review"
             >
@@ -197,12 +197,12 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
 
         {/* Content Area */}
         <div className="overflow-y-auto min-h-0 px-8 pt-[30px] pb-8 bg-surface relative h-auto">
-          
+
           {/* STEP 1 */}
           {step === 1 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
               <h3 className="text-[22px] font-bold text-text-primary mb-[22px]">Step 1: Understand the Risk</h3>
-              
+
               <div className="px-[22px] py-[18px] bg-critical-muted border border-critical/20 rounded-[14px] mb-6">
                 <h4 className="text-[16px] font-bold text-critical mb-1" style={{ lineHeight: 1.45 }}>
                   {decision.itemName} may fall below safe stock within {decision.timeToBreach || "46 hours"}.
@@ -253,10 +253,10 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
           {step === 2 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
               <h3 className="text-[22px] font-bold text-text-primary mb-[22px]">Step 2: Compare Response Options</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-[26px]">
                 {/* Option A: Purchase Only */}
-                <div 
+                <div
                   onClick={() => setSelectedStrategy("procure")}
                   className={cn("flex flex-col p-4 bg-white border-2 rounded-xl shadow-sm cursor-pointer transition-all", selectedStrategy === "procure" ? "border-text-primary shadow-md" : "border-border hover:border-border-strong")}
                 >
@@ -292,7 +292,7 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                 </div>
 
                 {/* Option B: Transfer Only */}
-                <div 
+                <div
                   onClick={() => setSelectedStrategy("transfer")}
                   className={cn("flex flex-col p-4 bg-white border-2 rounded-xl shadow-sm cursor-pointer transition-all relative overflow-hidden", selectedStrategy === "transfer" ? "border-text-primary shadow-md" : "border-border hover:border-border-strong")}
                 >
@@ -322,12 +322,12 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                       <span className="font-medium text-text-primary">Low</span>
                     </div>
                   </div>
-                  
+
                   {/* Transfer Feasibility Block */}
                   {feasibilityResult && (
                     <div className="mt-3 bg-surface p-2.5 rounded-md border border-border">
                       <div className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <Truck className="w-3.5 h-3.5" /> Transfer Feasibility: 
+                        <Truck className="w-3.5 h-3.5" /> Transfer Feasibility:
                         <span className={feasibilityResult.feasible ? "text-amber-600" : "text-critical"}>
                           {feasibilityResult.feasible ? "Conditionally Feasible" : "Not Recommended"}
                         </span>
@@ -351,7 +351,7 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                 </div>
 
                 {/* Option C: Hybrid */}
-                <div 
+                <div
                   onClick={() => setSelectedStrategy("hybrid")}
                   className={cn("flex flex-col p-4 bg-white border-2 rounded-xl shadow-sm cursor-pointer transition-all relative overflow-hidden", selectedStrategy === "hybrid" ? "border-[var(--color-intelligence)] shadow-md bg-[var(--color-intelligence)]/5" : "border-border hover:border-[var(--color-intelligence)]")}
                 >
@@ -365,7 +365,7 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                   </div>
                   <div className="text-[14px] font-semibold text-text-primary mb-1">Hybrid Replenishment</div>
                   <div className="text-[12px] text-text-secondary mb-4 min-h-[36px]">
-                    Transfer 18 {decision.unit} from {decision.sourceBranchName || 'Warangal'} <br/>
+                    Transfer 18 {decision.unit} from {decision.sourceBranchName || 'Warangal'} <br />
                     Purchase 22 {decision.unit} from {decision.supplierName}
                   </div>
                   <div className="space-y-2 flex-1 border-t border-border/50 pt-3">
@@ -395,7 +395,7 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                   {feasibilityResult && (
                     <div className="mt-3 bg-white p-2.5 rounded-md border border-[var(--color-intelligence)]/30 shadow-sm">
                       <div className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <Truck className="w-3.5 h-3.5 text-[var(--color-intelligence)]" /> Transfer Feasibility: 
+                        <Truck className="w-3.5 h-3.5 text-[var(--color-intelligence)]" /> Transfer Feasibility:
                         <span className="text-success ml-1">Conditionally Feasible</span>
                       </div>
                       <div className="text-[11px] text-text-secondary leading-tight grid grid-cols-2 gap-1.5 mb-2">
@@ -440,17 +440,17 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
           {step === 3 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
               <h3 className="text-[22px] font-bold text-text-primary mb-[22px]">Step 3: Approve Action</h3>
-              
+
               <div className="bg-white border border-border rounded-[14px] shadow-sm overflow-hidden">
                 <div className="bg-surface border-b border-border px-6 py-4 flex justify-between items-center">
                   <h4 className="text-[14px] font-bold text-text-primary uppercase tracking-wider">Final Selected Strategy Summary</h4>
                   {isModifying && <span className="text-[11px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded uppercase">Modified by Manager</span>}
                 </div>
-                
+
                 <div className="p-6">
                   <div className="text-[18px] font-bold text-text-primary mb-5 flex items-center justify-between">
                     <span>Recommended Action: {selectedStrategy === 'hybrid' ? 'Hybrid Replenishment' : selectedStrategy === 'procure' ? 'Purchase Only' : 'Transfer Only'}</span>
-                    <button 
+                    <button
                       onClick={() => setIsModifying(!isModifying)}
                       className="text-[12px] font-medium text-text-secondary hover:text-text-primary flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-md hover:bg-surface transition-colors"
                     >
@@ -460,7 +460,7 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
 
                   <div className="space-y-4">
                     <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-2">Actions to create:</div>
-                    
+
                     {(selectedStrategy === 'hybrid' || selectedStrategy === 'transfer') && (
                       <div className="flex items-start gap-4 p-5 bg-surface rounded-xl border border-border/80">
                         <div className="bg-white p-2.5 rounded-lg shadow-sm border border-border shrink-0">
@@ -470,10 +470,10 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                           <div className="font-bold text-[14px] text-text-primary mb-1.5">1. Transfer Action</div>
                           {isModifying ? (
                             <div className="flex items-center gap-2 mt-2">
-                              <input 
-                                type="number" 
+                              <input
+                                type="number"
                                 min="0"
-                                value={transferQty} 
+                                value={transferQty}
                                 onChange={(e) => setTransferQty(Math.max(0, parseInt(e.target.value) || 0))}
                                 className="w-20 px-2 py-1.5 text-[14px] border border-border rounded-md focus:ring-2 focus:ring-[var(--color-primary)] outline-none"
                               />
@@ -482,7 +482,7 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                             </div>
                           ) : (
                             <div className="text-[14px] text-text-secondary">
-                              <span className="font-bold text-text-primary">{transferQty}</span> {decision.unit} <br/> {decision.sourceBranchName || 'Warangal'} → {decision.branchName}
+                              <span className="font-bold text-text-primary">{transferQty}</span> {decision.unit} <br /> {decision.sourceBranchName || 'Warangal'} → {decision.branchName}
                             </div>
                           )}
                         </div>
@@ -498,10 +498,10 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                           <div className="font-bold text-[14px] text-text-primary mb-1.5">{selectedStrategy === 'hybrid' ? '2.' : '1.'} Purchase Order Draft</div>
                           {isModifying ? (
                             <div className="flex items-center gap-2 mt-2">
-                              <input 
-                                type="number" 
+                              <input
+                                type="number"
                                 min="0"
-                                value={purchaseQty} 
+                                value={purchaseQty}
                                 onChange={(e) => setPurchaseQty(Math.max(0, parseInt(e.target.value) || 0))}
                                 className="w-20 px-2 py-1.5 text-[14px] border border-border rounded-md focus:ring-2 focus:ring-[var(--color-primary)] outline-none"
                               />
@@ -510,19 +510,19 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                             </div>
                           ) : (
                             <div className="text-[14px] text-text-secondary">
-                              <span className="font-bold text-text-primary">{purchaseQty}</span> {decision.unit} <br/> {decision.supplierName} → {decision.branchName}
+                              <span className="font-bold text-text-primary">{purchaseQty}</span> {decision.unit} <br /> {decision.supplierName} → {decision.branchName}
                             </div>
                           )}
                         </div>
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="mt-6 pt-5 border-t border-border flex justify-between items-center">
-                     <div className="text-[14px] font-medium text-text-secondary">Estimated Net Protection</div>
-                     <div className="text-[22px] font-bold text-success">
-                        ₹{((selectedStrategy === 'hybrid' ? 31410 : selectedStrategy === 'procure' ? 24500 : 8000) * (isModifying ? 0.95 : 1)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                     </div>
+                    <div className="text-[14px] font-medium text-text-secondary">Estimated Net Protection</div>
+                    <div className="text-[22px] font-bold text-success">
+                      ₹{((selectedStrategy === 'hybrid' ? 31410 : selectedStrategy === 'procure' ? 24500 : 8000) * (isModifying ? 0.95 : 1)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -549,10 +549,10 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                     "Other"
                   ].map(reason => (
                     <label key={reason} className="flex items-center gap-2 text-[14px] text-text-primary cursor-pointer hover:bg-surface p-1.5 rounded-md transition-colors">
-                      <input 
-                        type="radio" 
-                        name="rejectReason" 
-                        value={reason} 
+                      <input
+                        type="radio"
+                        name="rejectReason"
+                        value={reason}
                         checked={rejectReason === reason}
                         onChange={(e) => setRejectReason(e.target.value)}
                         className="accent-critical w-4 h-4"
@@ -560,7 +560,7 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                       {reason}
                     </label>
                   ))}
-                  <button 
+                  <button
                     onClick={confirmReject}
                     disabled={!rejectReason}
                     className="mt-5 w-full py-2.5 bg-critical text-white rounded-lg text-[14px] font-bold disabled:opacity-50 transition-opacity hover:bg-red-700"
@@ -577,32 +577,32 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
         {/* Footer Actions */}
         <div className="flex items-center justify-between px-8 pt-5 pb-6 border-t border-border bg-white shrink-0 gap-5">
           <div className="flex items-center gap-[18px]">
-            <Link 
-              href="/inventory" 
+            <Link
+              href="/inventory"
               className="text-[14px] font-semibold text-text-secondary hover:text-text-primary hover:underline transition-colors focus:outline-none focus:ring-2 focus:ring-border cursor-pointer flex items-center"
             >
               View Inventory
             </Link>
-            <Link 
-              href="/forecasting" 
+            <Link
+              href="/forecasting"
               className="text-[14px] font-semibold text-text-secondary hover:text-text-primary hover:underline transition-colors focus:outline-none focus:ring-2 focus:ring-border cursor-pointer flex items-center"
             >
               View Forecast
             </Link>
           </div>
-          
+
           <div className="flex items-center gap-4">
             {step > 1 && (
-              <button 
+              <button
                 className="h-[44px] px-[18px] text-[14px] font-medium text-text-primary bg-surface border border-border rounded-lg hover:bg-surface-hover transition-colors shadow-sm flex items-center justify-center"
                 onClick={() => setStep((s) => (s - 1) as 1 | 2)}
               >
                 Back
               </button>
             )}
-            
+
             {step < 3 ? (
-              <button 
+              <button
                 className="h-[44px] px-[18px] text-[14px] font-bold text-white bg-[var(--color-sidebar-bg)] rounded-lg hover:bg-black transition-colors shadow-sm flex items-center gap-2 justify-center"
                 onClick={() => setStep((s) => (s + 1) as 2 | 3)}
               >
@@ -610,13 +610,13 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
               </button>
             ) : (
               <div className="flex items-center gap-3">
-                <button 
+                <button
                   onClick={() => setIsRejecting(true)}
                   className="h-[44px] px-[18px] text-[14px] font-bold text-critical bg-critical-muted border border-critical/20 rounded-lg hover:bg-critical/10 transition-colors shadow-sm flex items-center justify-center"
                 >
                   Reject Recommendation
                 </button>
-                <button 
+                <button
                   className="h-[44px] px-[18px] text-[14px] font-bold text-white bg-[var(--color-accent)] rounded-lg hover:bg-[var(--color-accent-hover)] transition-colors shadow-sm flex items-center justify-center"
                   onClick={handleApprove}
                 >

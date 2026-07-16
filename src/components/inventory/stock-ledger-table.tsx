@@ -1,9 +1,17 @@
 "use client";
 
 import { useStore } from "@/store/useStore";
+import React from "react";
 
 export function StockLedgerTable() {
   const stockTransactions = useStore(s => s.stockTransactions);
+  const [isMounted, setIsMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) return null;
 
   if (stockTransactions.length === 0) {
     return (

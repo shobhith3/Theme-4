@@ -1,5 +1,5 @@
 export type RecommendationType = "procure" | "transfer" | "reduce" | "expedite" | "hybrid";
-export type RecommendationStatus = "pending" | "approved" | "rejected" | "executed" | "expired";
+export type RecommendationStatus = "new" | "needs_review" | "auto_approved" | "approved" | "rejected" | "executing" | "completed" | "pending";
 export type UrgencyLevel = "critical" | "high" | "medium" | "low";
 
 export interface Recommendation {
@@ -14,6 +14,7 @@ export interface Recommendation {
   unit: string;
   estimatedCost: number;
   estimatedSavings: number;
+  revenueAtRisk?: number;
   reasoning: string;
   status: RecommendationStatus;
   createdAt: string;

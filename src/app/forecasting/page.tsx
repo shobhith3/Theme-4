@@ -44,7 +44,7 @@ export default function ForecastingPage() {
   const itemStatus = selectedItem
     ? (selectedItem.currentStock <= selectedItem.minStock ? "critical"
       : selectedItem.currentStock <= selectedItem.minStock * 1.5 ? "warning"
-      : "healthy")
+        : "healthy")
     : "unknown";
 
   const statusLabel = itemStatus === "critical" ? "Critical" : itemStatus === "warning" ? "Warning" : "Healthy";
@@ -74,8 +74,8 @@ export default function ForecastingPage() {
   // ── Recommended action data ──
   const recStrategy = matchingRec?.type === "hybrid" ? "Hybrid Replenishment"
     : matchingRec?.type === "transfer" ? "Inter-Branch Transfer"
-    : matchingRec?.type === "procure" ? "Purchase Order"
-    : matchingRec?.type === "reduce" ? "Stock Reduction" : null;
+      : matchingRec?.type === "procure" ? "Purchase Order"
+        : matchingRec?.type === "reduce" ? "Stock Reduction" : null;
 
   // ── Scenario handler ──
   const handleRunScenario = () => {
@@ -175,21 +175,19 @@ export default function ForecastingPage() {
       />
 
       {/* ═══════ SECTION 2 — STOCK RISK SUMMARY BANNER ═══════ */}
-      <div className={`rounded-[14px] border p-5 mb-6 ${
-        itemStatus === "critical" ? "bg-critical/[0.04] border-critical/15" :
-        itemStatus === "warning" ? "bg-warning/[0.04] border-warning/15" :
-        "bg-info/[0.04] border-info/15"
-      }`}>
+      <div className={`rounded-[14px] border p-5 mb-6 ${itemStatus === "critical" ? "bg-critical/[0.04] border-critical/15" :
+          itemStatus === "warning" ? "bg-warning/[0.04] border-warning/15" :
+            "bg-info/[0.04] border-info/15"
+        }`}>
         <div className="flex flex-col lg:flex-row lg:items-center gap-5">
 
           {/* Left — status + text */}
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2.5 mb-2">
-              <span className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                itemStatus === "critical" ? "bg-critical/10 text-critical" :
-                itemStatus === "warning" ? "bg-amber-100 text-amber-700" :
-                "bg-green-100 text-green-700"
-              }`}>
+              <span className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${itemStatus === "critical" ? "bg-critical/10 text-critical" :
+                  itemStatus === "warning" ? "bg-amber-100 text-amber-700" :
+                    "bg-green-100 text-green-700"
+                }`}>
                 <ShieldAlert className="w-3 h-3" />
                 {statusLabel}
               </span>
@@ -308,7 +306,7 @@ export default function ForecastingPage() {
                 <div className="absolute z-10 transition-all duration-500" style={{ right: "10%", top: `${10 + demandChange / 2}%` }}>
                   <div className="w-3.5 h-3.5 rounded-full bg-amber-500 border-2 border-white shadow-md animate-pulse" />
                   <div className="absolute left-6 top-1/2 -translate-y-1/2 bg-white px-2 py-1 rounded shadow text-xs whitespace-nowrap font-medium text-text-primary">
-                    <span className="text-critical font-bold">{simResults.risk} Risk</span><br/>
+                    <span className="text-critical font-bold">{simResults.risk} Risk</span><br />
                     <span className="text-text-muted">{simResults.daysCover} days cover projected</span>
                   </div>
                 </div>
@@ -470,19 +468,17 @@ export default function ForecastingPage() {
             {/* ── SCENARIO RESULT ── */}
             {simResults && (
               <div className="mt-5 pt-4 border-t border-border/60 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <div className={`p-4 rounded-xl border ${
-                  simResults.risk === "Critical" ? "bg-critical/5 border-critical/20" :
-                  simResults.risk === "High" ? "bg-amber-50 border-amber-200" :
-                  "bg-green-50 border-green-200"
-                }`}>
+                <div className={`p-4 rounded-xl border ${simResults.risk === "Critical" ? "bg-critical/5 border-critical/20" :
+                    simResults.risk === "High" ? "bg-amber-50 border-amber-200" :
+                      "bg-green-50 border-green-200"
+                  }`}>
                   {/* Header */}
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Scenario Result</span>
-                    <span className={`text-[12px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider ${
-                      simResults.risk === "Critical" ? "bg-critical/10 text-critical" :
-                      simResults.risk === "High" ? "bg-amber-100 text-amber-700" :
-                      "bg-green-100 text-green-700"
-                    }`}>
+                    <span className={`text-[12px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider ${simResults.risk === "Critical" ? "bg-critical/10 text-critical" :
+                        simResults.risk === "High" ? "bg-amber-100 text-amber-700" :
+                          "bg-green-100 text-green-700"
+                      }`}>
                       {simResults.risk} Risk
                     </span>
                   </div>
