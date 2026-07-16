@@ -7,7 +7,7 @@ import { InventoryItem } from "@/types";
 
 type IntakeMode = "menu" | "receive" | "add" | "import" | "invoice" | "transfer" | "audit" | "loss";
 
-export function StockIntakeCenter({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export function StockIntakeCenter({ isOpen, onClose, inline = false }: { isOpen: boolean; onClose: () => void; inline?: boolean }) {
   const [mode, setMode] = useState<IntakeMode>("menu");
   const [successMsg, setSuccessMsg] = useState("");
 
@@ -23,8 +23,8 @@ export function StockIntakeCenter({ isOpen, onClose }: { isOpen: boolean; onClos
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className={inline ? "relative z-10 flex items-center justify-center p-4" : "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"}>
+      <div className={`bg-white shadow-2xl w-full flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${inline ? 'rounded-xl h-[80vh]' : 'max-w-2xl max-h-[90vh] rounded-2xl'}`}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">

@@ -11,7 +11,10 @@ import type {
   RecommendationStatus,
   POStatus,
   StockTransaction,
-  StockTransactionType
+  StockTransactionType,
+  TransferOrder,
+  TransferStatus,
+  AutoApprovalRule
 } from "@/types";
 
 // Import Initial Mock Data
@@ -93,6 +96,8 @@ export interface StoreState {
   feedEvents: (FeedEvent & { read?: boolean })[];
   settings: AppSettings;
   stockTransactions: StockTransaction[];
+  transfers: TransferOrder[];
+  autoApprovalRules: AutoApprovalRule[];
 
   // Actions
   updateSettings: (settings: Partial<AppSettings>) => void;
@@ -102,9 +107,16 @@ export interface StoreState {
   approveRecommendation: (id: string, customPayload?: { type?: "procure" | "transfer" | "hybrid" | "reduce", purchaseQty?: number, transferQty?: number }) => void;
   rejectRecommendation: (id: string, reason?: string) => void;
   modifyRecommendation: (id: string, payload: Partial<Recommendation>) => void;
+  batchApproveRecommendations: (ids: string[]) => void;
 
   createPurchaseOrder: (po: Omit<PurchaseOrder, "id" | "poNumber" | "createdAt">) => void;
   updatePurchaseOrderStatus: (id: string, status: POStatus) => void;
+  receivePurchaseOrderStock: (poId: string, receivedItems: { itemId: string, quantity: number, expiryDate?: string }[]) => void;
+
+  createTransferOrder: (transfer: Omit<TransferOrder, "id" | "createdAt">) => void;
+  updateTransferOrderStatus: (id: string, status: TransferStatus) => void;
+  dispatchTransferOrder: (id: string) => void;
+  receiveTransferOrder: (id: string) => void;
 
   recordStockTransaction: (payload: {
     type: StockTransactionType;
@@ -144,6 +156,23 @@ export const useStore = create<StoreState>()(
       feedEvents: mockFeedEvents,
       settings: defaultSettings,
       stockTransactions: [],
+      transfers: [],
+      autoApprovalRules: [
+        {
+          id: "rule-1",
+          name: "Routine Supplies Auto-Approval",
+          description: "Automatically approve POs under ₹5000 for preferred suppliers",
+          isEnabled: true,
+          criteria: { maxSpend: 5000, supplierReliabilityMin: 90 }
+        },
+        {
+          id: "rule-2",
+          name: "Short-Distance Transfers",
+          description: "Auto-approve transfers if distance < 20km and confidence > 90%",
+          isEnabled: false,
+          criteria: { maxTransferDistanceKm: 20, confidenceThreshold: 90 }
+        }
+      ],
 
       updateSettings: (newSettings) =>
         set((state) => ({
@@ -217,12 +246,108 @@ export const useStore = create<StoreState>()(
             newPOs = [po, ...state.purchaseOrders];
           }
 
+          let newTransfers = state.transfers;
+          const finalTransferQty = customPayload?.transferQty || (finalType === 'hybrid' ? rec.hybridDetails?.transferQty : rec.suggestedQty) || 0;
+          
+          if ((finalType === "transfer" || finalType === "hybrid") && rec.sourceBranchId && finalTransferQty > 0) {
+            const tOrder: TransferOrder = {
+              id: `TRN-${Date.now()}`,
+              sourceBranchId: rec.sourceBranchId,
+              sourceBranchName: rec.sourceBranchName || "Unknown Source",
+              destinationBranchId: rec.branchId,
+              destinationBranchName: rec.branchName,
+              itemId: rec.itemId,
+              itemName: rec.itemName,
+              quantity: finalTransferQty,
+              unit: rec.unit,
+              expectedArrivalDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+              transportCost: rec.transferFeasibility?.transferCost || 0,
+              coldStorageRequired: false,
+              linkedDecisionId: rec.id,
+              status: "approved",
+              createdAt: new Date().toISOString()
+            };
+            newTransfers = [tOrder, ...state.transfers];
+          }
+
           return {
             recommendations: updatedRecs,
             purchaseOrders: newPOs,
+            transfers: newTransfers,
           };
         });
       },
+
+      batchApproveRecommendations: (ids) => 
+        set((state) => {
+          const updatedRecs = state.recommendations.map(r => 
+            ids.includes(r.id) ? { ...r, status: "approved" as RecommendationStatus } : r
+          );
+          
+          // Generate POs for procured ones
+          const newPOs: PurchaseOrder[] = [];
+          const newTransfers: TransferOrder[] = [];
+          
+          ids.forEach(id => {
+            const rec = state.recommendations.find(r => r.id === id);
+            if (!rec) return;
+            
+            if ((rec.type === "procure" || rec.type === "hybrid") && rec.supplierId) {
+              const qty = rec.type === 'hybrid' ? (rec.hybridDetails?.purchaseQty || 0) : (rec.suggestedQty || 0);
+              if (qty > 0) {
+                newPOs.push({
+                  id: `PO-${Date.now()}-${Math.random()}`,
+                  poNumber: `PO-2026-${Math.floor(Math.random() * 9000) + 1000}`,
+                  supplierId: rec.supplierId,
+                  supplierName: rec.supplierName || "Unknown Supplier",
+                  branchId: rec.branchId,
+                  branchName: rec.branchName,
+                  status: "draft",
+                  totalAmount: rec.estimatedCost,
+                  expectedDeliveryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+                  createdAt: new Date().toISOString(),
+                  lineItems: [{
+                    itemId: rec.itemId,
+                    itemName: rec.itemName,
+                    quantity: qty,
+                    unit: rec.unit,
+                    unitPrice: rec.estimatedCost / (rec.suggestedQty || 1),
+                    totalPrice: rec.estimatedCost,
+                  }]
+                });
+              }
+            }
+
+            if ((rec.type === "transfer" || rec.type === "hybrid") && rec.sourceBranchId) {
+              const qty = rec.type === 'hybrid' ? (rec.hybridDetails?.transferQty || 0) : (rec.suggestedQty || 0);
+              if (qty > 0) {
+                newTransfers.push({
+                  id: `TRN-${Date.now()}-${Math.random()}`,
+                  sourceBranchId: rec.sourceBranchId,
+                  sourceBranchName: rec.sourceBranchName || "Unknown Source",
+                  destinationBranchId: rec.branchId,
+                  destinationBranchName: rec.branchName,
+                  itemId: rec.itemId,
+                  itemName: rec.itemName,
+                  quantity: qty,
+                  unit: rec.unit,
+                  expectedArrivalDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+                  transportCost: rec.transferFeasibility?.transferCost || 0,
+                  coldStorageRequired: false,
+                  linkedDecisionId: rec.id,
+                  status: "approved",
+                  createdAt: new Date().toISOString()
+                });
+              }
+            }
+          });
+          
+          return {
+            recommendations: updatedRecs,
+            purchaseOrders: [...newPOs, ...state.purchaseOrders],
+            transfers: [...newTransfers, ...state.transfers]
+          };
+        }),
 
       rejectRecommendation: (id, reason) =>
         set((state) => ({
@@ -257,6 +382,151 @@ export const useStore = create<StoreState>()(
             po.id === id ? { ...po, status } : po
           ),
         })),
+
+      receivePurchaseOrderStock: (poId, receivedItems) =>
+        set((state) => {
+          const po = state.purchaseOrders.find(p => p.id === poId);
+          if (!po) return state;
+
+          const updatedInventory = [...state.inventory];
+          const newTransactions: StockTransaction[] = [];
+
+          receivedItems.forEach(ri => {
+            const idx = updatedInventory.findIndex(i => i.id === ri.itemId && i.branchId === po.branchId);
+            if (idx > -1) {
+              const item = updatedInventory[idx];
+              const balanceAfter = item.currentStock + ri.quantity;
+              updatedInventory[idx] = { 
+                ...item, 
+                currentStock: balanceAfter,
+                lastRestocked: new Date().toISOString().split('T')[0],
+                expiryDate: ri.expiryDate || item.expiryDate
+              };
+
+              newTransactions.push({
+                id: `txn-${Date.now()}-${Math.random()}`,
+                date: new Date().toISOString(),
+                type: "po_receipt",
+                itemId: item.id,
+                itemName: item.name,
+                branchId: po.branchId,
+                branchName: po.branchName,
+                quantityIn: ri.quantity,
+                quantityOut: 0,
+                balanceAfter,
+                unit: item.unit,
+                reference: po.poNumber,
+                reason: "PO Receipt",
+                createdBy: "Warehouse Staff"
+              });
+            }
+          });
+
+          return {
+            inventory: updatedInventory,
+            stockTransactions: [...newTransactions, ...state.stockTransactions],
+            purchaseOrders: state.purchaseOrders.map((p) =>
+              p.id === poId ? { ...p, status: "fulfilled" } : p
+            ),
+          };
+        }),
+
+      createTransferOrder: (transfer) =>
+        set((state) => ({
+          transfers: [
+            {
+              ...transfer,
+              id: `TRN-${Date.now()}`,
+              createdAt: new Date().toISOString()
+            },
+            ...state.transfers
+          ]
+        })),
+
+      updateTransferOrderStatus: (id, status) =>
+        set((state) => ({
+          transfers: state.transfers.map((t) =>
+            t.id === id ? { ...t, status } : t
+          )
+        })),
+
+      dispatchTransferOrder: (id) =>
+        set((state) => {
+          const t = state.transfers.find(trn => trn.id === id);
+          if (!t) return state;
+
+          const updatedInventory = [...state.inventory];
+          const newTransactions: StockTransaction[] = [];
+
+          const sourceIdx = updatedInventory.findIndex(i => i.id === t.itemId && i.branchId === t.sourceBranchId);
+          if (sourceIdx > -1) {
+            const item = updatedInventory[sourceIdx];
+            const balanceAfter = item.currentStock - t.quantity;
+            updatedInventory[sourceIdx] = { ...item, currentStock: balanceAfter };
+
+            newTransactions.push({
+              id: `txn-${Date.now()}-${Math.random()}`,
+              date: new Date().toISOString(),
+              type: "transfer_out",
+              itemId: item.id,
+              itemName: item.name,
+              branchId: t.sourceBranchId,
+              branchName: t.sourceBranchName,
+              quantityIn: 0,
+              quantityOut: t.quantity,
+              balanceAfter,
+              unit: item.unit,
+              reference: t.id,
+              reason: `Dispatched to ${t.destinationBranchName}`,
+              createdBy: "Store Manager"
+            });
+          }
+
+          return {
+            inventory: updatedInventory,
+            stockTransactions: [...newTransactions, ...state.stockTransactions],
+            transfers: state.transfers.map(trn => trn.id === id ? { ...trn, status: "dispatched" } : trn)
+          };
+        }),
+
+      receiveTransferOrder: (id) =>
+        set((state) => {
+          const t = state.transfers.find(trn => trn.id === id);
+          if (!t) return state;
+
+          const updatedInventory = [...state.inventory];
+          const newTransactions: StockTransaction[] = [];
+
+          const destIdx = updatedInventory.findIndex(i => i.id === t.itemId && i.branchId === t.destinationBranchId);
+          if (destIdx > -1) {
+            const item = updatedInventory[destIdx];
+            const balanceAfter = item.currentStock + t.quantity;
+            updatedInventory[destIdx] = { ...item, currentStock: balanceAfter };
+
+            newTransactions.push({
+              id: `txn-${Date.now()}-${Math.random()}`,
+              date: new Date().toISOString(),
+              type: "transfer_in",
+              itemId: item.id,
+              itemName: item.name,
+              branchId: t.destinationBranchId,
+              branchName: t.destinationBranchName,
+              quantityIn: t.quantity,
+              quantityOut: 0,
+              balanceAfter,
+              unit: item.unit,
+              reference: t.id,
+              reason: `Received from ${t.sourceBranchName}`,
+              createdBy: "Store Manager"
+            });
+          }
+
+          return {
+            inventory: updatedInventory,
+            stockTransactions: [...newTransactions, ...state.stockTransactions],
+            transfers: state.transfers.map(trn => trn.id === id ? { ...trn, status: "received" } : trn)
+          };
+        }),
 
       runScenario: (itemId, branchId, params) => {
         // Very basic mock logic for scenario simulator

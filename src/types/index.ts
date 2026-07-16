@@ -12,3 +12,5 @@ export type {
 } from "./recommendation";
 export type { PurchaseOrder, POLineItem, POStatus } from "./purchase-order";
 export type { StockTransaction, StockTransactionType } from "./ledger";
+export type { TransferOrder, TransferStatus } from "./transfer";
+export type { AutoApprovalRule } from "./settings";

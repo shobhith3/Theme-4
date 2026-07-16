@@ -21,14 +21,14 @@ const navigation = [
   {
     group: "Overview",
     items: [
-      { label: "Today's Decisions", href: "/command-center", icon: LayoutDashboard },
+      { label: "Today's Decisions", href: "/command-center", icon: LayoutDashboard, badge: 7 },
     ]
   },
   {
     group: "Intelligence",
     items: [
-      { label: "Inventory", href: "/inventory", icon: Package },
-      { label: "Stock Intake", href: "/stock-intake", icon: CheckCircle },
+      { label: "Inventory", href: "/inventory", icon: Package, badge: 12 },
+      { label: "Stock Intake", href: "/stock-intake", icon: CheckCircle, badge: 3 },
     ]
   },
   {
@@ -40,14 +40,15 @@ const navigation = [
   {
     group: "Execution",
     items: [
-      { label: "Purchase Orders", href: "/purchase-orders", icon: FileText },
-      { label: "Transfers", href: "/transfers", icon: Truck },
+      { label: "Purchase Orders", href: "/purchase-orders", icon: FileText, badge: 5 },
+      { label: "Transfers", href: "/transfers", icon: Truck, badge: 3 },
       { label: "Forecasts", href: "/forecasting", icon: TrendingUp },
     ]
   },
   {
     group: "System",
     items: [
+      { label: "Reports", href: "/reports", icon: FileText },
       { label: "Settings / Rules", href: "/settings", icon: Settings },
     ]
   }
@@ -138,6 +139,11 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
                       {isActive && isCollapsed && (
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[16px] bg-[var(--color-intelligence)] rounded-r-md" />
                       )}
+                      {(item as any).badge && !isCollapsed && (
+                        <span className="ml-auto flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[var(--color-intelligence)] px-1.5 text-[11px] font-bold text-white">
+                          {(item as any).badge}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 );
@@ -147,23 +153,36 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Bottom Profile Block */}
-      <div className="shrink-0 border-t border-white/5 p-3">
-        <div className={cn(
-          "flex items-center rounded-lg hover:bg-white/5 cursor-pointer transition-colors border border-transparent hover:border-white/10",
-          isCollapsed ? "justify-center p-2" : "gap-3 p-2"
-        )}>
-          <div className="w-8 h-8 rounded-md bg-white/10 flex items-center justify-center shrink-0 border border-white/5">
-            <span className="text-[12px] font-semibold text-white">SA</span>
+      {/* Bottom Cards */}
+      {!isCollapsed && (
+        <div className="shrink-0 border-t border-white/5 p-3 flex flex-col gap-3">
+          {/* AI Procurement Assistant Card */}
+          <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+            <h4 className="text-[12px] font-bold text-white flex items-center gap-1.5 mb-1.5">
+              <Lightbulb className="w-3.5 h-3.5 text-amber-400" /> AI Assistant
+            </h4>
+            <p className="text-[11px] text-[var(--color-sidebar-text-muted)] mb-3 leading-relaxed">
+              Ask anything about inventory, suppliers, or decisions.
+            </p>
+            <button className="w-full h-[32px] bg-white text-black font-semibold rounded-md text-[11px] hover:bg-white/90 transition-colors">
+              Ask AI Assistant
+            </button>
           </div>
-          {!isCollapsed && (
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-[13px] font-medium text-white truncate leading-tight">Sanjay A.</span>
-              <span className="text-[11px] text-[var(--color-sidebar-text-muted)] truncate mt-0.5">Regional Manager</span>
+
+          {/* Quick Actions Card */}
+          <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+            <h4 className="text-[11px] font-bold text-[var(--color-sidebar-text-muted)] uppercase tracking-wider mb-2">
+              Quick Actions
+            </h4>
+            <div className="flex flex-col gap-1">
+              <Link href="/inventory" className="text-[12px] text-white hover:text-[var(--color-intelligence)] transition-colors py-1">Add New Item</Link>
+              <Link href="/stock-intake" className="text-[12px] text-white hover:text-[var(--color-intelligence)] transition-colors py-1">Receive Stock</Link>
+              <Link href="/purchase-orders" className="text-[12px] text-white hover:text-[var(--color-intelligence)] transition-colors py-1">Create Purchase Order</Link>
+              <Link href="/transfers" className="text-[12px] text-white hover:text-[var(--color-intelligence)] transition-colors py-1">Create Transfer</Link>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </aside>
   );
 }

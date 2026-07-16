@@ -51,14 +51,18 @@ export function Topbar({ onMobileMenuToggle }: TopbarProps) {
         <div className="flex flex-col justify-center">
           <span className="text-[14px] font-semibold text-text-primary">{getPageTitle()}</span>
           <div className="flex items-center gap-1.5 mt-[2px]">
-            <span className="text-[12px] font-medium text-text-secondary">All branches</span>
+            <select className="text-[12px] font-medium text-text-secondary bg-transparent border-none focus:ring-0 cursor-pointer hover:text-text-primary transition-colors appearance-none pr-3">
+              <option>Hyderabad Central</option>
+              <option>Warangal Hub</option>
+              <option>Siddipet Main</option>
+            </select>
             <span className="text-text-muted">·</span>
             <span className="text-[12px] font-medium text-text-secondary">Live intelligence</span>
           </div>
         </div>
       </div>
 
-      {/* Right: Search + Notifications */}
+      {/* Right: Search + Notifications + Profile */}
       <div className="flex items-center gap-4">
         {/* Search */}
         <button 
@@ -67,13 +71,30 @@ export function Topbar({ onMobileMenuToggle }: TopbarProps) {
         >
           <Search className="w-4 h-4 shrink-0 text-text-muted" />
           <span className="truncate flex-1">Search items, suppliers, decisions...</span>
-          <kbd className="ml-auto shrink-0 text-[10px] text-text-muted font-medium font-mono border border-border rounded px-1">⌘K</kbd>
+          <kbd className="ml-auto shrink-0 text-[10px] text-text-muted font-medium font-mono border border-border rounded px-1">Ctrl + K</kbd>
         </button>
 
         <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
 
+        <button className="text-text-muted hover:text-text-primary transition-colors p-1.5 rounded-full hover:bg-surface-hover">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        </button>
+
         {/* Notifications */}
         <NotificationPopover />
+
+        <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+
+        {/* User Profile */}
+        <div className="flex items-center gap-3 cursor-pointer p-1.5 rounded-lg hover:bg-surface-hover transition-colors">
+          <div className="flex flex-col text-right hidden sm:flex">
+            <span className="text-[13px] font-semibold text-text-primary leading-tight">Rohit</span>
+            <span className="text-[11px] text-text-secondary">Manager</span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-[var(--color-intelligence)] flex items-center justify-center text-white font-bold text-[13px]">
+            R
+          </div>
+        </div>
       </div>
 
       <SearchDialog isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />

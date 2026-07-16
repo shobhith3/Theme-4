@@ -10,6 +10,7 @@ import {
 import { useStore } from "@/store/useStore";
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { GuidedDecisionReview } from "@/components/decision/guided-decision-review";
 
 export default function ForecastingPage() {
   const inventory = useStore(s => s.inventory);
@@ -23,6 +24,7 @@ export default function ForecastingPage() {
   const [demandChange, setDemandChange] = useState(10);
   const [supplierDelay, setSupplierDelay] = useState(1);
   const [isRunning, setIsRunning] = useState(false);
+  const [selectedDecisionId, setSelectedDecisionId] = useState<string | null>(null);
   const [simResults, setSimResults] = useState<{
     risk: string; daysCover: number; reason: string;
     riskChange: string; action: string;
@@ -227,9 +229,9 @@ export default function ForecastingPage() {
           {/* Right — action buttons */}
           <div className="flex flex-row lg:flex-col gap-2.5 shrink-0">
             {matchingRec && (
-              <Link href={`/recommendations?id=${matchingRec.id}`} className="flex items-center justify-center gap-2 px-4 h-[38px] bg-[var(--color-accent)] text-white rounded-lg text-[13px] font-semibold hover:bg-[var(--color-accent-hover)] transition-colors shadow-sm whitespace-nowrap">
-                Review Decision <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+              <button onClick={() => setSelectedDecisionId(matchingRec.id)} className="flex items-center justify-center gap-2 px-4 h-[38px] bg-[var(--color-accent)] text-white rounded-lg text-[13px] font-semibold hover:bg-[var(--color-accent-hover)] transition-colors shadow-sm whitespace-nowrap">
+                Review Decision <ArrowRight className="w-4 h-4" />
+              </button>
             )}
             <Link href="/inventory" className="flex items-center justify-center gap-2 px-4 h-[38px] bg-white border border-border rounded-lg text-[13px] font-medium text-text-primary hover:bg-surface-hover transition-colors shadow-sm whitespace-nowrap">
               <Eye className="w-3.5 h-3.5 text-text-muted" /> View Inventory Item
@@ -511,10 +513,11 @@ export default function ForecastingPage() {
 
                   {/* Review Decision */}
                   {(simResults.risk === "Critical" || simResults.risk === "High") && matchingRec && (
-                    <Link href={`/recommendations?id=${matchingRec.id}`}
-                      className="flex items-center justify-center gap-2 w-full h-[38px] bg-[var(--color-accent)] text-white rounded-lg text-[13px] font-semibold hover:bg-[var(--color-accent-hover)] transition-colors shadow-sm mt-1">
-                      Review Decision <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
+                    <button onClick={() => setSelectedDecisionId(matchingRec.id)}
+                      className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-4 py-2 rounded-md shadow-sm transition-colors mt-1"
+                    >
+                      Review Decision <ArrowRight className="w-4 h-4" />
+                    </button>
                   )}
                 </div>
               </div>
@@ -584,10 +587,11 @@ export default function ForecastingPage() {
 
             {/* Right — buttons */}
             <div className="flex flex-col gap-2.5 shrink-0 lg:w-[180px] lg:pt-6">
-              <Link href={`/recommendations?id=${matchingRec.id}`}
-                className="flex items-center justify-center gap-2 w-full h-[40px] bg-[var(--color-accent)] text-white rounded-lg text-[13px] font-semibold hover:bg-[var(--color-accent-hover)] transition-colors shadow-sm">
-                Review Decision <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+              <button onClick={() => setSelectedDecisionId(matchingRec.id)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-black text-white rounded-md text-[13px] font-semibold hover:bg-black/90 transition-colors shadow-sm"
+              >
+                Review Full Decision <ArrowRight className="w-4 h-4" />
+              </button>
               <Link href="/inventory"
                 className="flex items-center justify-center gap-2 w-full h-[40px] bg-white border border-border rounded-lg text-[13px] font-medium text-text-primary hover:bg-surface-hover transition-colors shadow-sm">
                 <Eye className="w-3.5 h-3.5 text-text-muted" /> View Inventory Item
@@ -595,6 +599,13 @@ export default function ForecastingPage() {
             </div>
           </div>
         </div>
+      )}
+      {selectedDecisionId && (
+        <GuidedDecisionReview
+          isOpen={true}
+          decisionId={selectedDecisionId}
+          onClose={() => setSelectedDecisionId(null)}
+        />
       )}
     </PageContainer>
   );

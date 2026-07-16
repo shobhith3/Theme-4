@@ -12,4 +12,10 @@ export interface Supplier {
   isPreferred: boolean;
   onTimeDeliveryRate: number;
   defectRate: number;
+  fulfillmentRate: number;
+  qualityScore: number;
+  priceLevel: string;
+  lateDeliveries: number;
+  partialDeliveries: number;
+  riskStatus: 'healthy' | 'warning' | 'critical';
 }
