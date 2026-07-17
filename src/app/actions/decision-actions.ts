@@ -6,8 +6,13 @@ import { Recommendation } from '@/types';
 export async function getPendingDecisions(): Promise<Recommendation[]> {
   const prisma = await getPrisma();
   
+  const { user } = await import('@/lib/auth-utils').then(m => m.validateUserAccess());
+
   const decisions = await prisma.decision.findMany({
-    where: { status: { in: ['new', 'needs_review'] } },
+    where: { 
+      status: { in: ['new', 'needs_review'] },
+      branch: { organizationId: user.organizationId }
+    },
     include: { item: true, branch: true },
     orderBy: { revenueAtRisk: 'desc' }
   });
