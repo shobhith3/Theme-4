@@ -25,7 +25,8 @@ export function AppShell({ children }: AppShellProps) {
         hydrateFromServer({
           branches: data.branches as any,
           inventory: data.inventory as any,
-          suppliers: data.suppliers as any
+          suppliers: data.suppliers as any,
+          feedEvents: data.feedEvents as any
         });
       } catch (err) {
         console.error("Failed to sync/hydrate:", err);

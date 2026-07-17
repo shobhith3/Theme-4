@@ -11,24 +11,59 @@ model Organization {
   name      String
   branches  Branch[]
   users     User[]
+  members   OrganizationMember[]
+  roles     Role[]
   invites   Invite[]
   items     Item[]
   suppliers Supplier[]
+  activityLogs ActivityLog[]
+  notifications Notification[]
+  fileRecords   FileRecord[]
+  rules         AutoApprovalRule[]
+  forecasts     Forecast[]
+  forecastRuns  ForecastRun[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
 
-model User {
-  id             String         @id @default(cuid())
-  clerkUserId    String?        @unique
+model Role {
+  id             String               @id @default(cuid())
   organizationId String
-  organization   Organization   @relation(fields: [organizationId], references: [id])
+  organization   Organization         @relation(fields: [organizationId], references: [id])
   name           String
-  email          String         @unique
-  role           String // e.g. 'OWNER', 'ADMIN', 'REGIONAL_MANAGER', 'BRANCH_MANAGER', 'INVENTORY_STAFF', 'VIEWER'
+  permissions    String               // JSON string or comma separated
+  members        OrganizationMember[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+}
+
+model User {
+  id             String               @id @default(cuid())
+  clerkUserId    String?              @unique
+  organizationId String
+  organization   Organization         @relation(fields: [organizationId], references: [id])
+  name           String
+  email          String               @unique
+  role           String               // Legacy role string, migrating to OrganizationMember
   branchAccess   BranchAccess[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  memberships    OrganizationMember[]
+  activityLogs   ActivityLog[]
+  notifications  Notification[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  roleId         String
+  role           Role         @relation(fields: [roleId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  @@unique([organizationId, userId])
 }
 
 model BranchAccess {
@@ -64,6 +99,10 @@ model Branch {
   transferDestinations TransferOrder[]   @relation("DestinationBranch")
   branchAccess         BranchAccess[]
   decisions            Decision[]
+  activityLogs         ActivityLog[]
+  stockIntakes         StockIntakeRecord[]
+  audits               AuditRecord[]
+  forecasts            Forecast[]
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 }
@@ -77,6 +116,7 @@ model Supplier {
   leadTimeDays   Int
   purchaseOrders PurchaseOrder[]
   supplierItems  SupplierItem[]
+  stockIntakes   StockIntakeRecord[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 }
@@ -96,6 +136,7 @@ model Item {
   decisions          Decision[]
   purchaseOrderItems PurchaseOrderItem[]
   transferOrderItems TransferOrderItem[]
+  forecasts          Forecast[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -141,7 +182,7 @@ model StockTransaction {
   item        Item            @relation(fields: [itemId], references: [id])
   quantity    Float
   direction   Int // 1 for IN, -1 for OUT
-  type        String // 'CONSUMPTION', 'INTAKE', 'TRANSFER_IN', 'TRANSFER_OUT', 'ADJUSTMENT'
+  type        String // e.g. opening_stock, receive_stock, po_receipt, sales_consumption, transfer_in, transfer_out, manual_adjustment, wastage, expiry, damage, return
   referenceId String? // ID of PO, Transfer, etc.
   date        DateTime        @default(now())
   createdAt   DateTime        @default(now())
@@ -159,6 +200,7 @@ model Decision {
   status        String // 'new', 'needs_review', 'approved', 'rejected'
   aiExplanation String?
   dataPayload   String // Store the computed decision JSON
+  outcomes      OutcomeRecord[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -167,7 +209,7 @@ model PurchaseOrder {
   id           String              @id @default(cuid())
   supplierId   String
   supplier     Supplier            @relation(fields: [supplierId], references: [id])
-  status       String // 'Draft', 'Sent', 'Confirmed', 'Partially Received', 'Received'
+  status       String // 'Draft', 'Sent', 'Confirmed', 'Partially Received', 'Received', 'Cancelled'
   expectedDate DateTime?
   items        PurchaseOrderItem[]
   createdAt    DateTime            @default(now())
@@ -190,7 +232,7 @@ model TransferOrder {
   sourceBranch    Branch              @relation("SourceBranch", fields: [sourceBranchId], references: [id])
   destBranchId    String
   destBranch      Branch              @relation("DestinationBranch", fields: [destBranchId], references: [id])
-  status          String // 'Draft', 'In Transit', 'Received'
+  status          String // 'Draft', 'Approved', 'Dispatched', 'In Transit', 'Received', 'Cancelled'
   expectedArrival DateTime?
   items           TransferOrderItem[]
   createdAt       DateTime            @default(now())
@@ -204,4 +246,131 @@ model TransferOrderItem {
   itemId          String
   item            Item          @relation(fields: [itemId], references: [id])
   quantity        Float
+}
+
+model ActivityLog {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  branch         Branch?       @relation(fields: [branchId], references: [id])
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id])
+  action         String
+  details        String        // JSON payload
+  createdAt      DateTime      @default(now())
+}
+
+model Notification {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  title          String
+  message        String
+  type           String
+  read           Boolean       @default(false)
+  referenceId    String?
+  createdAt      DateTime      @default(now())
+}
+
+model OutcomeRecord {
+  id                     String    @id @default(cuid())
+  decisionId             String
+  decision               Decision  @relation(fields: [decisionId], references: [id])
+  predictedDemand        Float
+  actualDemand           Float
+  accuracy               Float
+  stockoutAvoided        Boolean
+  wasteAvoided           Boolean
+  revenueProtected       Float
+  supplierDeliveryStatus String
+  manualOverrideReason   String?
+  createdAt              DateTime  @default(now())
+}
+
+model FileRecord {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  name           String
+  url            String
+  type           String
+  size           Int
+  uploadedBy     String
+  createdAt      DateTime      @default(now())
+}
+
+model AutoApprovalRule {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  condition      String        // JSON payload
+  action         String        // JSON payload
+  active         Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model StockIntakeRecord {
+  id           String     @id @default(cuid())
+  branchId     String
+  branch       Branch     @relation(fields: [branchId], references: [id])
+  supplierId   String?
+  supplier     Supplier?  @relation(fields: [supplierId], references: [id])
+  status       String
+  type         String
+  expectedDate DateTime?
+  receivedDate DateTime?
+  createdBy    String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model AuditRecord {
+  id            String    @id @default(cuid())
+  branchId      String
+  branch        Branch    @relation(fields: [branchId], references: [id])
+  status        String
+  scheduledDate DateTime?
+  completedDate DateTime?
+  auditorId     String
+  createdAt     DateTime  @default(now())
+}
+
+model Forecast {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  itemId         String
+  item           Item          @relation(fields: [itemId], references: [id])
+  branchId       String
+  branch         Branch        @relation(fields: [branchId], references: [id])
+  date           DateTime
+  expectedDemand Float
+  usableStock    Float
+  stockCover     Float
+  timeToBreach   Float
+  riskLevel      String
+  confidence     Float
+  createdAt      DateTime      @default(now())
+}
+
+model ForecastRun {
+  id             String                 @id @default(cuid())
+  organizationId String
+  organization   Organization           @relation(fields: [organizationId], references: [id])
+  status         String
+  executedBy     String
+  snapshots      ForecastInputSnapshot[]
+  completedAt    DateTime?
+  createdAt      DateTime               @default(now())
+}
+
+model ForecastInputSnapshot {
+  id             String       @id @default(cuid())
+  forecastRunId  String
+  forecastRun    ForecastRun  @relation(fields: [forecastRunId], references: [id])
+  data           String       // JSON payload
 }

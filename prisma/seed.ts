@@ -7,7 +7,6 @@ const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
-// Helper for seeded random to make the script reproducible
 let seed = 12345;
 
 function random() {
@@ -27,6 +26,20 @@ async function main() {
   console.log('Starting seed...');
 
   // Clean up existing data
+  await prisma.activityLog.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.outcomeRecord.deleteMany();
+  await prisma.fileRecord.deleteMany();
+  await prisma.autoApprovalRule.deleteMany();
+  await prisma.stockIntakeRecord.deleteMany();
+  await prisma.auditRecord.deleteMany();
+  await prisma.forecastInputSnapshot.deleteMany();
+  await prisma.forecastRun.deleteMany();
+  await prisma.forecast.deleteMany();
+  
+  await prisma.organizationMember.deleteMany();
+  await prisma.role.deleteMany();
+
   await prisma.branchAccess.deleteMany();
   await prisma.invite.deleteMany();
   await prisma.transferOrderItem.deleteMany();
@@ -48,6 +61,23 @@ async function main() {
     data: { name: 'FreshEats Co.' }
   });
 
+  // Create Roles
+  const ownerRole = await prisma.role.create({
+    data: { organizationId: org.id, name: 'OWNER', permissions: 'ALL' }
+  });
+  const regionalRole = await prisma.role.create({
+    data: { organizationId: org.id, name: 'REGIONAL_MANAGER', permissions: 'ALL' }
+  });
+  const branchRole = await prisma.role.create({
+    data: { organizationId: org.id, name: 'BRANCH_MANAGER', permissions: 'BRANCH_SPECIFIC' }
+  });
+  const inventoryRole = await prisma.role.create({
+    data: { organizationId: org.id, name: 'INVENTORY_STAFF', permissions: 'INVENTORY_ONLY' }
+  });
+  const viewerRole = await prisma.role.create({
+    data: { organizationId: org.id, name: 'VIEWER', permissions: 'READ_ONLY' }
+  });
+
   // Create Branches
   const hydCentral = await prisma.branch.create({
     data: { organizationId: org.id, name: 'Hyderabad Central', type: 'CENTRAL' }
@@ -59,11 +89,13 @@ async function main() {
     data: { organizationId: org.id, name: 'Siddipet Main', type: 'MAIN' }
   });
 
-  // Create Users & Branch Access
+  // Create Users & Organization Members & Branch Access
   const rohit = await prisma.user.create({
-    data: { organizationId: org.id, name: 'Rohit', email: 'rohit@fresheats.co', role: 'REGIONAL_MANAGER' }
+    data: { organizationId: org.id, name: 'Rohit', email: 'rohit@procureiq.demo', role: 'REGIONAL_MANAGER' }
   });
-  // Regional Manager gets access to all
+  await prisma.organizationMember.create({
+    data: { organizationId: org.id, userId: rohit.id, roleId: regionalRole.id }
+  });
   await prisma.branchAccess.createMany({
     data: [
       { userId: rohit.id, branchId: hydCentral.id },
@@ -73,25 +105,37 @@ async function main() {
   });
 
   const sanjay = await prisma.user.create({
-    data: { organizationId: org.id, name: 'Sanjay', email: 'sanjay@fresheats.co', role: 'BRANCH_MANAGER' }
+    data: { organizationId: org.id, name: 'Sanjay', email: 'sanjay@procureiq.demo', role: 'BRANCH_MANAGER' }
+  });
+  await prisma.organizationMember.create({
+    data: { organizationId: org.id, userId: sanjay.id, roleId: branchRole.id }
   });
   await prisma.branchAccess.create({ data: { userId: sanjay.id, branchId: hydCentral.id } });
 
   const kavya = await prisma.user.create({
-    data: { organizationId: org.id, name: 'Kavya', email: 'kavya@fresheats.co', role: 'INVENTORY_STAFF' }
+    data: { organizationId: org.id, name: 'Kavya', email: 'kavya@procureiq.demo', role: 'INVENTORY_STAFF' }
+  });
+  await prisma.organizationMember.create({
+    data: { organizationId: org.id, userId: kavya.id, roleId: inventoryRole.id }
   });
   await prisma.branchAccess.create({ data: { userId: kavya.id, branchId: hydCentral.id } });
 
   const viewer = await prisma.user.create({
-    data: { organizationId: org.id, name: 'Viewer User', email: 'viewer@fresheats.co', role: 'VIEWER' }
+    data: { organizationId: org.id, name: 'Viewer User', email: 'viewer@procureiq.demo', role: 'VIEWER' }
+  });
+  await prisma.organizationMember.create({
+    data: { organizationId: org.id, userId: viewer.id, roleId: viewerRole.id }
   });
 
   // Create Suppliers
   const freshRoute = await prisma.supplier.create({
-    data: { organizationId: org.id, name: 'FreshRoute Foods', reliability: 95, leadTimeDays: 2 }
+    data: { organizationId: org.id, name: 'FreshRoute Foods', reliability: 98, leadTimeDays: 1 }
   });
   const deccanTraders = await prisma.supplier.create({
     data: { organizationId: org.id, name: 'Deccan Traders', reliability: 60, leadTimeDays: 5 } // Chronically late
+  });
+  const telanganaFresh = await prisma.supplier.create({
+    data: { organizationId: org.id, name: 'Telangana Fresh Farms', reliability: 85, leadTimeDays: 4 }
   });
 
   // Create Items
@@ -119,7 +163,8 @@ async function main() {
   // Create SupplierItems
   await prisma.supplierItem.createMany({
     data: [
-      { supplierId: freshRoute.id, itemId: chickenBreast.id, unitCost: 200, minOrderQty: 10 },
+      { supplierId: freshRoute.id, itemId: chickenBreast.id, unitCost: 195, minOrderQty: 10 },
+      { supplierId: telanganaFresh.id, itemId: chickenBreast.id, unitCost: 210, minOrderQty: 10 },
       { supplierId: deccanTraders.id, itemId: chickenBreast.id, unitCost: 190, minOrderQty: 20 },
       { supplierId: freshRoute.id, itemId: paneer.id, unitCost: 250, minOrderQty: 5 },
       { supplierId: freshRoute.id, itemId: tomatoes.id, unitCost: 40, minOrderQty: 50 },
@@ -131,7 +176,7 @@ async function main() {
   const branches = [hydCentral, wglHub, sidMain];
   const items = [chickenBreast, paneer, tomatoes, newSpice];
 
-  const today = new Date('2025-05-21T00:00:00.000Z'); // Fixed anchor date
+  const today = new Date('2025-05-21T00:00:00.000Z');
 
   for (const branch of branches) {
     for (const item of items) {
@@ -161,7 +206,6 @@ async function main() {
         targetCurrentStock = 6;
       }
 
-      // Create BranchInventory
       const inventory = await prisma.branchInventory.create({
         data: {
           branchId: branch.id,
@@ -172,16 +216,10 @@ async function main() {
         }
       });
 
-      // Generate Ledger Transactions
       let currentRunningStock = 0;
       const historyDays = isNearZero ? 3 : 90;
-
-      // We will first inject an initial intake 90 days ago, then daily consumption and weekly intakes.
-      // At the end, we do an adjustment to land exactly at `targetCurrentStock`.
-
       const transactions = [];
 
-      // Initial Intake
       const initialDate = new Date(today);
       initialDate.setDate(today.getDate() - historyDays);
 
@@ -190,7 +228,7 @@ async function main() {
         itemId: item.id,
         quantity: 500,
         direction: 1,
-        type: 'INTAKE',
+        type: 'opening_stock',
         date: initialDate
       });
       currentRunningStock += 500;
@@ -200,19 +238,15 @@ async function main() {
         currentDate.setDate(today.getDate() - i);
 
         let dailyDemand = baseDemand;
-
-        // Texture: Weekend patterns
         const dayOfWeek = currentDate.getDay();
         if (dayOfWeek === 0 || dayOfWeek === 6) {
-          dailyDemand *= 1.4; // 40% higher on weekends
+          dailyDemand *= 1.4;
         }
 
-        // Texture: Volatility
         if (isVolatile) {
           dailyDemand *= randomFloat(0.5, 1.5);
         }
 
-        // Texture: Festival Spike (e.g. 15 days ago)
         if (i === 15) {
           dailyDemand *= 2.5;
         }
@@ -225,13 +259,12 @@ async function main() {
             itemId: item.id,
             quantity: dailyDemand,
             direction: -1,
-            type: 'CONSUMPTION',
+            type: 'sales_consumption',
             date: currentDate
           });
           currentRunningStock -= dailyDemand;
         }
 
-        // Replenish occasionally if running low, to keep numbers realistic, except for the last few days of hero case
         if (currentRunningStock < safeStock && !isHeroCase && !isOverstockedDonor && i > 5) {
           const intake = Math.round(baseDemand * 10);
           transactions.push({
@@ -239,14 +272,13 @@ async function main() {
             itemId: item.id,
             quantity: intake,
             direction: 1,
-            type: 'INTAKE',
+            type: 'receive_stock',
             date: currentDate
           });
           currentRunningStock += intake;
         }
       }
 
-      // Force the final stock to match `targetCurrentStock` precisely for hero case and others
       const difference = targetCurrentStock - currentRunningStock;
       if (difference !== 0) {
         transactions.push({
@@ -254,7 +286,7 @@ async function main() {
           itemId: item.id,
           quantity: Math.abs(difference),
           direction: difference > 0 ? 1 : -1,
-          type: 'ADJUSTMENT',
+          type: 'manual_adjustment',
           date: today
         });
       }
@@ -265,32 +297,7 @@ async function main() {
     }
   }
 
-  // Double check the hero case ledger sum
-  const heroTx = await prisma.stockTransaction.aggregate({
-    where: {
-      item: { sku: 'D-2048' },
-      inventory: { branch: { name: 'Hyderabad Central' } }
-    },
-    _sum: {
-      quantity: true
-    },
-  });
-
-  // Since we don't have a computed field for direction multiplication in Prisma aggregate easily, 
-  // we do raw query to verify.
-  const rawSum: any = await prisma.$queryRaw`
-    SELECT SUM(quantity * direction) as total
-    FROM "StockTransaction" st
-    JOIN "Item" i ON st."itemId" = i.id
-    JOIN "BranchInventory" bi ON st."inventoryId" = bi.id
-    JOIN "Branch" b ON bi."branchId" = b.id
-    WHERE i.sku = 'D-2048' AND b.name = 'Hyderabad Central'
-  `;
-
-  console.log(`Hero Case (Chicken Breast @ Hyd Central) Verified Stock: ${rawSum[0].total} kg (Expected: 8 kg)`);
-
   console.log('Seed completed successfully.');
-  console.log(`Inserted 1 Organization, 3 Branches, 2 Suppliers, 4 Items, and ~${90 * 3 * 4} ledger transactions.`);
 }
 
 main()

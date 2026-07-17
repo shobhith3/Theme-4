@@ -22,6 +22,22 @@ export async function runFullRiskScan() {
       // 1. Run deterministic engine
       const engineOutput = await getEngineDecisionForSku(inv.item.sku, inv.branch.name);
       
+      // Store Forecast
+      await prisma.forecast.create({
+        data: {
+          organizationId: user.organizationId,
+          itemId: inv.itemId,
+          branchId: inv.branchId,
+          date: new Date(),
+          expectedDemand: engineOutput.forecast.expectedDailyDemand,
+          usableStock: engineOutput.metrics.usableStock,
+          stockCover: engineOutput.metrics.stockCover,
+          timeToBreach: engineOutput.metrics.timeToBreach,
+          riskLevel: engineOutput.riskLevel,
+          confidence: engineOutput.confidence,
+        }
+      });
+
       // If no risk, clear existing decision if any
       if (engineOutput.riskLevel === 'Low') {
         await prisma.decision.deleteMany({

@@ -187,7 +187,7 @@ export interface StoreState {
 
   runScenario: (itemId: string, branchId: string, params: ScenarioParams) => void;
   resetToDefault: () => void;
-  hydrateFromServer: (data: { branches?: Branch[], inventory?: InventoryItem[], suppliers?: Supplier[] }) => void;
+  hydrateFromServer: (data: { branches?: Branch[], inventory?: InventoryItem[], suppliers?: Supplier[], feedEvents?: FeedEvent[] }) => void;
 }
 
 const defaultSettings: AppSettings = {
@@ -655,12 +655,13 @@ export const useStore = create<StoreState>()(
           feedEvents: mockFeedEvents,
           settings: defaultSettings,
         }),
-      hydrateFromServer: (data) =>
+      hydrateFromServer: (data: any) =>
         set((state) => ({
           ...state,
           ...(data.branches && { branches: data.branches }),
           ...(data.inventory && { inventory: data.inventory }),
           ...(data.suppliers && { suppliers: data.suppliers }),
+          ...(data.feedEvents && data.feedEvents.length > 0 && { feedEvents: data.feedEvents }),
         })),
     }),
     {

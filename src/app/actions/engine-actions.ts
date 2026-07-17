@@ -42,7 +42,7 @@ export async function getEngineDecisionForSku(sku: string, branchName: string) {
   const currentStock = Number(ledgerSum[0]?.total || 0) || inventory.currentStock;
   
   const history: DailyConsumption[] = inventory.transactions
-    .filter(t => t.type === 'CONSUMPTION')
+    .filter(t => t.type === 'sales_consumption')
     .map(t => ({
       date: t.date,
       quantity: t.quantity
@@ -152,4 +152,38 @@ export async function getEngineDecisionForSku(sku: string, branchName: string) {
   const serializedDecision = decisionRecord ? JSON.parse(JSON.stringify(decisionRecord)) : null;
   
   return { ...engineOutput, storedDecision: serializedDecision };
+}
+
+export async function getPendingDecisions() {
+  const prisma = await getPrisma();
+  const decisions = await prisma.decision.findMany({
+    where: { status: 'needs_review' },
+    include: {
+      item: true,
+      branch: true
+    }
+  });
+
+  return decisions.map(d => {
+    const payload = JSON.parse(d.dataPayload || "{}");
+    return {
+      id: d.id,
+      itemId: d.itemId,
+      itemName: d.item.name,
+      branchId: d.branchId,
+      branchName: d.branch.name,
+      type: payload.type || "procure",
+      status: d.status,
+      suggestedQty: payload.suggestedQty || 0,
+      unit: d.item.unit,
+      reasoning: payload.reasoning || d.aiExplanation,
+      estimatedCost: payload.estimatedCost || 0,
+      hybridDetails: payload.hybridDetails,
+      transferFeasibility: payload.transferFeasibility,
+      sourceBranchId: payload.sourceBranchId || "Warangal", 
+      sourceBranchName: "Warangal", 
+      supplierId: payload.supplierId || "sup-1",
+      supplierName: "FreshRoute Foods" 
+    };
+  });
 }

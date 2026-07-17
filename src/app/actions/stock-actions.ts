@@ -37,7 +37,24 @@ export async function getRealData() {
     unit: inv.item.unit,
   }));
 
-  return { branches, suppliers, inventory };
+  const notifications = await prisma.notification.findMany({
+    where: { organizationId: orgId },
+    orderBy: { createdAt: 'desc' },
+    take: 10
+  });
+
+  const feedEvents = notifications.map(e => ({
+    id: e.id,
+    type: e.type,
+    title: e.title,
+    description: e.message,
+    timestamp: e.createdAt.toISOString(),
+    read: e.read,
+    itemName: "", // Optional mapping if needed
+    branchName: "" // Optional mapping if needed
+  }));
+
+  return { branches, suppliers, inventory, feedEvents };
 }
 
 export async function receiveStock(input: {
@@ -47,7 +64,7 @@ export async function receiveStock(input: {
   qty: number;
   reference?: string;
 }) {
-  await validateUserAccess(input.branchId);
+  const { user } = await validateUserAccess(input.branchId);
   const prisma = await getPrisma();
   return prisma.$transaction(async (tx) => {
     const inventory = await tx.branchInventory.findUnique({
@@ -61,7 +78,7 @@ export async function receiveStock(input: {
         itemId: input.itemId,
         quantity: input.qty,
         direction: 1,
-        type: 'INTAKE',
+        type: 'receive_stock',
         referenceId: input.reference || `Manual Receipt from Supplier ${input.supplierId}`,
       }
     });
@@ -69,6 +86,28 @@ export async function receiveStock(input: {
     await tx.branchInventory.update({
       where: { id: inventory.id },
       data: { currentStock: { increment: input.qty } }
+    });
+
+    await tx.stockIntakeRecord.create({
+      data: {
+        branchId: input.branchId,
+        supplierId: input.supplierId,
+        status: 'completed',
+        type: 'receipt',
+        expectedDate: new Date(),
+        receivedDate: new Date(),
+        createdBy: user.id
+      }
+    });
+
+    await tx.activityLog.create({
+      data: {
+        organizationId: user.organizationId,
+        branchId: input.branchId,
+        userId: user.id,
+        action: 'receive_stock',
+        details: JSON.stringify({ itemId: input.itemId, qty: input.qty, supplierId: input.supplierId })
+      }
     });
 
     revalidatePath('/inventory');
@@ -121,11 +160,21 @@ export async function addOpeningStock(input: {
           itemId: item.id,
           quantity: input.qty,
           direction: 1,
-          type: 'INTAKE',
+          type: 'opening_stock',
           referenceId: 'Opening Stock',
         }
       });
     }
+
+    await tx.activityLog.create({
+      data: {
+        organizationId: org.id,
+        branchId: input.branchId,
+        userId: user.id,
+        action: 'add_opening_stock',
+        details: JSON.stringify({ itemId: item.id, qty: input.qty, name: input.name })
+      }
+    });
 
     revalidatePath('/inventory');
     revalidatePath('/stock-intake');
@@ -140,7 +189,7 @@ export async function recordLoss(input: {
   type: string;
   reason?: string;
 }) {
-  await validateUserAccess(input.branchId);
+  const { user } = await validateUserAccess(input.branchId);
   const prisma = await getPrisma();
   return prisma.$transaction(async (tx) => {
     const inventory = await tx.branchInventory.findUnique({
@@ -148,13 +197,15 @@ export async function recordLoss(input: {
     });
     if (!inventory) throw new Error("Inventory record not found.");
 
+    const normalizedType = input.type.toLowerCase(); // wastage, expiry, damage, etc.
+
     await tx.stockTransaction.create({
       data: {
         inventoryId: inventory.id,
         itemId: input.itemId,
         quantity: input.qty,
         direction: -1,
-        type: input.type.toUpperCase(), // e.g. WASTAGE, DAMAGE, EXPIRY
+        type: normalizedType,
         referenceId: input.reason || 'Manual Loss Record',
       }
     });
@@ -162,6 +213,16 @@ export async function recordLoss(input: {
     await tx.branchInventory.update({
       where: { id: inventory.id },
       data: { currentStock: { decrement: input.qty } }
+    });
+
+    await tx.activityLog.create({
+      data: {
+        organizationId: user.organizationId,
+        branchId: input.branchId,
+        userId: user.id,
+        action: 'record_loss',
+        details: JSON.stringify({ itemId: input.itemId, qty: input.qty, type: normalizedType, reason: input.reason })
+      }
     });
 
     revalidatePath('/inventory');
@@ -176,7 +237,7 @@ export async function adjustStock(input: {
   newQty: number;
   reason?: string;
 }) {
-  await validateUserAccess(input.branchId);
+  const { user } = await validateUserAccess(input.branchId);
   const prisma = await getPrisma();
   return prisma.$transaction(async (tx) => {
     const inventory = await tx.branchInventory.findUnique({
@@ -193,7 +254,7 @@ export async function adjustStock(input: {
         itemId: input.itemId,
         quantity: Math.abs(diff),
         direction: diff > 0 ? 1 : -1,
-        type: 'ADJUSTMENT',
+        type: 'manual_adjustment',
         referenceId: input.reason || 'Physical audit correction',
       }
     });
@@ -201,6 +262,16 @@ export async function adjustStock(input: {
     await tx.branchInventory.update({
       where: { id: inventory.id },
       data: { currentStock: input.newQty }
+    });
+
+    await tx.activityLog.create({
+      data: {
+        organizationId: user.organizationId,
+        branchId: input.branchId,
+        userId: user.id,
+        action: 'adjust_stock',
+        details: JSON.stringify({ itemId: input.itemId, oldQty: inventory.currentStock, newQty: input.newQty, reason: input.reason })
+      }
     });
 
     revalidatePath('/inventory');
@@ -215,7 +286,7 @@ export async function transferStock(input: {
   destId: string;
   qty: number;
 }) {
-  await validateUserAccess(input.sourceId);
+  const { user } = await validateUserAccess(input.sourceId);
   await validateUserAccess(input.destId);
   
   const prisma = await getPrisma();
@@ -227,11 +298,6 @@ export async function transferStock(input: {
       where: { branchId_itemId: { branchId: input.destId, itemId: input.itemId } },
     });
     
-    // Just find the organization from the source branch
-    const sourceBranch = await tx.branch.findUnique({ where: { id: input.sourceId }});
-    const organizationId = sourceBranch?.organizationId;
-    if (!organizationId) throw new Error("Organization not found for branch.");
-
     if (!sourceInventory || !destInventory) throw new Error("Source or destination inventory not found.");
 
     // Create Transfer Order record
@@ -256,7 +322,7 @@ export async function transferStock(input: {
         itemId: input.itemId,
         quantity: input.qty,
         direction: -1,
-        type: 'TRANSFER_OUT',
+        type: 'transfer_out',
         referenceId: transfer.id,
       }
     });
@@ -272,13 +338,23 @@ export async function transferStock(input: {
         itemId: input.itemId,
         quantity: input.qty,
         direction: 1,
-        type: 'TRANSFER_IN',
+        type: 'transfer_in',
         referenceId: transfer.id,
       }
     });
     await tx.branchInventory.update({
       where: { id: destInventory.id },
       data: { currentStock: { increment: input.qty } }
+    });
+
+    await tx.activityLog.create({
+      data: {
+        organizationId: user.organizationId,
+        branchId: input.sourceId, // Primary log on source
+        userId: user.id,
+        action: 'transfer_stock',
+        details: JSON.stringify({ transferId: transfer.id, itemId: input.itemId, qty: input.qty, sourceId: input.sourceId, destId: input.destId })
+      }
     });
 
     revalidatePath('/inventory');

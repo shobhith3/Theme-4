@@ -3,6 +3,8 @@
 import { getPrisma } from './engine-actions';
 import { Recommendation } from '@/types';
 import { validateUserAccess } from '@/lib/auth-utils';
+import { transferStock } from './stock-actions';
+import { revalidatePath } from 'next/cache';
 
 export async function getPendingDecisions(): Promise<Recommendation[]> {
   const prisma = await getPrisma();
@@ -19,11 +21,9 @@ export async function getPendingDecisions(): Promise<Recommendation[]> {
   });
 
   return decisions.map(d => {
-    // Parse the engine output stored in dataPayload
     const payload = JSON.parse(d.dataPayload);
     const chosenOption = payload.chosenOption?.option;
     
-    // Default mapping
     let type: "procure" | "transfer" | "reduce" | "expedite" | "hybrid" = "procure";
     let suggestedQty = payload.chosenOption?.recommendedQuantity || 0;
     let supplierId;
@@ -100,3 +100,5 @@ export async function getPendingDecisions(): Promise<Recommendation[]> {
     };
   });
 }
+
+

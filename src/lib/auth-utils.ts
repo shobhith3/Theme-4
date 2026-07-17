@@ -18,7 +18,12 @@ export async function validateUserAccess(branchId?: string | null) {
 
   let user = await prisma.user.findUnique({
     where: { email },
-    include: { branchAccess: true }
+    include: { 
+      branchAccess: true,
+      memberships: {
+        include: { role: true }
+      }
+    }
   });
 
   if (!user) {
@@ -32,24 +37,36 @@ export async function validateUserAccess(branchId?: string | null) {
       });
     }
 
-    user = await prisma.user.create({
+    await prisma.user.create({
       data: {
-        clerkUserId: `demo_${Date.now()}`, // Keep field for schema compatibility
+        clerkUserId: `demo_${Date.now()}`,
         email,
         name,
         role: "OWNER",
         organizationId: org.id,
-      },
-      include: { branchAccess: true }
+      }
+    });
+
+    user = await prisma.user.findUnique({
+      where: { email },
+      include: { 
+        branchAccess: true,
+        memberships: {
+          include: { role: true }
+        }
+      }
     });
   }
 
+  if (!user) throw new Error("Failed to initialize user");
+
   if (branchId) {
     const hasAccess = user.branchAccess.some(ba => ba.branchId === branchId);
-    if (!hasAccess && user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    const roleName = user.memberships?.[0]?.role?.name || user.role;
+    if (!hasAccess && roleName !== 'OWNER' && roleName !== 'ADMIN' && roleName !== 'REGIONAL_MANAGER') {
       throw new Error(`User does not have access to branch ${branchId}`);
     }
   }
 
-  return { user, organizationId: user.organizationId };
+  return { user, organizationId: user.organizationId, role: user.memberships?.[0]?.role?.name || user.role };
 }

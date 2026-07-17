@@ -13,10 +13,11 @@ import { InventoryItem } from "@/types";
 import { GuidedDecisionReview } from "@/components/decision/guided-decision-review";
 import { ItemDetailDrawer } from "@/components/inventory/item-detail-drawer";
 
-export default function InventoryContent() {
+export default function InventoryContent({ initialInventory = [], initialBranches = [] }: { initialInventory?: any[], initialBranches?: any[] }) {
   const searchParams = useSearchParams();
-  const inventory = useStore((s) => s.inventory);
-  const branches = useStore((s) => s.branches);
+  // We use state to hold the inventory so we can update it if needed, though for now it's static
+  const [inventory] = useState(initialInventory);
+  const [branches] = useState(initialBranches);
 
   const initialSearch = searchParams.get("item") || "";
   const initialBranch = searchParams.get("branch") || "all";
@@ -56,9 +57,9 @@ export default function InventoryContent() {
     { header: "On Hand", cell: (item: InventoryItem) => `${item.currentStock} ${item.unit}`, align: "right" as const },
     { header: "Incoming", cell: (item: InventoryItem) => `0 ${item.unit}`, align: "right" as const },
     { header: "Days Cover", cell: (item: InventoryItem) => `${item.avgDailyUsage > 0 ? (item.currentStock / item.avgDailyUsage).toFixed(0) : 'N/A'}d`, align: "right" as const },
-    { header: "Safety Stock", cell: (item: InventoryItem) => `${item.minStock} ${item.unit}`, align: "right" as const },
+    { header: "Safety Stock", cell: (item: any) => `${item.safeStock} ${item.unit}`, align: "right" as const },
     {
-      header: "Demand Trend", cell: (item: InventoryItem) => (
+      header: "Demand Trend", cell: (item: any) => (
         <span className={"text-info"}>
           +5%
         </span>
@@ -66,11 +67,11 @@ export default function InventoryContent() {
     },
     {
       header: "Projected Status",
-      cell: (item: InventoryItem) => <StatusBadge status={item.currentStock <= item.minStock ? 'Critical' : item.currentStock <= item.minStock * 1.5 ? 'High' : 'Monitored'} />
+      cell: (item: any) => <StatusBadge status={item.currentStock <= item.safeStock ? 'Critical' : item.currentStock <= item.safeStock * 1.5 ? 'High' : 'Monitored'} />
     },
     {
       header: "Action",
-      cell: (item: InventoryItem) => {
+      cell: (item: any) => {
         const rec = useStore.getState().recommendations.find(r => r.itemId === item.id && r.branchId === item.branchId && r.status === "pending");
         return (
           <div className="flex items-center gap-3 justify-end">
@@ -96,8 +97,8 @@ export default function InventoryContent() {
   ];
 
   const totalValue = inventory.reduce((sum, item) => sum + (item.currentStock * (item.unitCost || 0)), 0);
-  const overstockValue = inventory.filter(i => i.currentStock > i.maxStock).reduce((sum, item) => sum + ((item.currentStock - item.maxStock) * (item.unitCost || 0)), 0);
-  const atRiskCount = inventory.filter(i => i.currentStock <= i.minStock * 1.5).length;
+  const overstockValue = inventory.filter(i => i.currentStock > (i.safeStock * 2)).reduce((sum, item) => sum + ((item.currentStock - (item.safeStock * 2)) * (item.unitCost || 0)), 0);
+  const atRiskCount = inventory.filter(i => i.currentStock <= i.safeStock * 1.5).length;
 
   if (!isMounted) {
     return <div className="p-8 text-center text-text-muted">Loading inventory data...</div>;

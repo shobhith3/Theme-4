@@ -111,11 +111,25 @@ export async function executeDecision(input: ExecuteDecisionInput) {
       }
     }
     
-    // 4. Update Decision Status
+    // 4. Update Decision Status and Create OutcomeRecord
     if (input.decisionId) {
-      await tx.decision.update({
+      const decision = await tx.decision.update({
         where: { id: input.decisionId },
         data: { status: 'approved' }
+      });
+      
+      const payload = JSON.parse(decision.dataPayload);
+      await tx.outcomeRecord.create({
+        data: {
+          decisionId: decision.id,
+          predictedDemand: payload.forecast?.expectedDailyDemand || 0,
+          actualDemand: 0,
+          accuracy: 0,
+          stockoutAvoided: true,
+          wasteAvoided: false,
+          revenueProtected: decision.revenueAtRisk,
+          supplierDeliveryStatus: 'Pending',
+        }
       });
     } else {
       const existingDecision = await tx.decision.findFirst({
@@ -123,12 +137,26 @@ export async function executeDecision(input: ExecuteDecisionInput) {
       });
       
       if (existingDecision) {
-        await tx.decision.update({
+        const decision = await tx.decision.update({
           where: { id: existingDecision.id },
           data: { status: 'approved' }
         });
+        
+        const payload = JSON.parse(decision.dataPayload);
+        await tx.outcomeRecord.create({
+          data: {
+            decisionId: decision.id,
+            predictedDemand: payload.forecast?.expectedDailyDemand || 0,
+            actualDemand: 0,
+            accuracy: 0,
+            stockoutAvoided: true,
+            wasteAvoided: false,
+            revenueProtected: decision.revenueAtRisk,
+            supplierDeliveryStatus: 'Pending',
+          }
+        });
       } else {
-        await tx.decision.create({
+        const decision = await tx.decision.create({
           data: {
             itemId: itemId,
             branchId: destBranchId,
@@ -136,6 +164,19 @@ export async function executeDecision(input: ExecuteDecisionInput) {
             revenueAtRisk: 0,
             status: 'approved',
             dataPayload: JSON.stringify(input)
+          }
+        });
+        // We do not have a robust payload here to log an accurate OutcomeRecord without engine output, but we can do a generic one.
+        await tx.outcomeRecord.create({
+          data: {
+            decisionId: decision.id,
+            predictedDemand: 0,
+            actualDemand: 0,
+            accuracy: 0,
+            stockoutAvoided: true,
+            wasteAvoided: false,
+            revenueProtected: 0,
+            supplierDeliveryStatus: 'Pending',
           }
         });
       }

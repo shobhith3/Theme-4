@@ -5,7 +5,7 @@ import { validateUserAccess } from '@/lib/auth-utils';
 import { Branch, InventoryItem } from '@/types';
 
 export async function getOrganizationBranches(): Promise<any[]> {
-  const { user } = await validateUserAccess();
+  const { user, role } = await validateUserAccess();
 
   // Fetch branches. If Regional/Admin, they might have access to all or specific. 
   // Based on schema, we map from branchAccess.
@@ -13,7 +13,7 @@ export async function getOrganizationBranches(): Promise<any[]> {
   const dbBranches = await prisma.branch.findMany({
     where: {
       organizationId: user.organizationId,
-      ...((user.role === 'OWNER' || user.role === 'ADMIN') ? {} : { id: { in: branchIds } })
+      ...((role === 'OWNER' || role === 'ADMIN' || role === 'REGIONAL_MANAGER') ? {} : { id: { in: branchIds } })
     }
   });
 
@@ -32,7 +32,7 @@ export async function getOrganizationBranches(): Promise<any[]> {
 }
 
 export async function getBranchInventory(branchId?: string): Promise<any[]> {
-  const { user } = await validateUserAccess();
+  const { user, role } = await validateUserAccess();
   
   const branchIds = user.branchAccess.map(ba => ba.branchId);
 
@@ -41,7 +41,7 @@ export async function getBranchInventory(branchId?: string): Promise<any[]> {
       branch: {
         organizationId: user.organizationId,
       },
-      ...((user.role === 'OWNER' || user.role === 'ADMIN') 
+      ...((role === 'OWNER' || role === 'ADMIN' || role === 'REGIONAL_MANAGER') 
           ? (branchId ? { branchId } : {}) 
           : { branchId: branchId ? branchId : { in: branchIds } })
     },
