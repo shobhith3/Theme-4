@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { X, Bot, User, Send, BrainCircuit } from "lucide-react";
+import { askAssistant } from "@/app/actions/chat-actions";
 
 interface AiAssistantDrawerProps {
   isOpen: boolean;
@@ -13,35 +14,26 @@ export function AiAssistantDrawer({ isOpen, onClose }: AiAssistantDrawerProps) {
     { role: "ai", content: "Hi! I'm ProcureIQ Assistant. How can I help you today?" }
   ]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   if (!isOpen) return null;
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isPending) return;
 
     const userMessage = input.trim();
-    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
+    const newMessages: { role: "user" | "ai"; content: string }[] = [...messages, { role: "user", content: userMessage }];
+    setMessages(newMessages);
     setInput("");
-    setIsTyping(true);
 
-    setTimeout(() => {
-      let aiResponse = "I'm not sure about that. Let me look it up.";
-
-      const lowerInput = userMessage.toLowerCase();
-      if (lowerInput.includes("chicken") && (lowerInput.includes("risk") || lowerInput.includes("why"))) {
-        aiResponse = "Chicken Breast is risky because its current stock (12 kg) covers only 0.8 days of demand, while the safety stock is 15 kg. A projected demand increase of 5% makes it a critical priority.";
-      } else if (lowerInput.includes("supplier") || lowerInput.includes("best") || lowerInput.includes("who")) {
-        aiResponse = "For Chicken Breast, 'Metro Cash & Carry' is the preferred supplier with an 88% reliability score. However, a hybrid transfer from the Downtown Branch is faster to cover immediate needs.";
-      } else if (lowerInput.includes("action") || lowerInput.includes("what should i do")) {
-        aiResponse = "I recommend executing a hybrid replenishment: transfer 5 kg from Downtown Branch for immediate cover, and raise a PO for 20 kg to Metro Cash & Carry to restore safety levels.";
-      } else if (lowerInput.includes("hello") || lowerInput.includes("hi")) {
-        aiResponse = "Hello! I can answer questions about your inventory risks, supplier performance, and give replenishment recommendations. Try asking 'Why is chicken breast risky?'";
+    startTransition(async () => {
+      try {
+        const responseText = await askAssistant(newMessages);
+        setMessages(prev => [...prev, { role: "ai", content: responseText }]);
+      } catch (error) {
+        setMessages(prev => [...prev, { role: "ai", content: "Sorry, I encountered an error. Please try again." }]);
       }
-
-      setMessages(prev => [...prev, { role: "ai", content: aiResponse }]);
-      setIsTyping(false);
-    }, 1500);
+    });
   };
 
   return (
@@ -80,7 +72,7 @@ export function AiAssistantDrawer({ isOpen, onClose }: AiAssistantDrawerProps) {
               </div>
             </div>
           ))}
-          {isTyping && (
+          {isPending && (
             <div className="flex gap-3 max-w-[85%] self-start">
               <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 bg-[var(--color-intelligence)] text-white">
                 <Bot className="w-3.5 h-3.5" />
@@ -107,7 +99,7 @@ export function AiAssistantDrawer({ isOpen, onClose }: AiAssistantDrawerProps) {
             />
             <button 
               onClick={handleSend}
-              disabled={!input.trim() || isTyping}
+              disabled={!input.trim() || isPending}
               className="absolute right-2 p-2 bg-black text-white rounded-lg disabled:opacity-50 hover:bg-black/90 transition-colors"
             >
               <Send className="w-3.5 h-3.5" />
