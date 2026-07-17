@@ -17,6 +17,7 @@ export async function getOrganizationBranches(): Promise<any[]> {
 
   // Fetch branches. If Regional/Admin, they might have access to all or specific. 
   // Based on schema, we map from branchAccess.
+  const branchIds = user.branchAccess.map(ba => ba.branchId);
   const dbBranches = await prisma.branch.findMany({
     where: {
       organizationId: user.organizationId,
