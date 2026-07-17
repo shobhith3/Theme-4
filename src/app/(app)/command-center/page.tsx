@@ -12,24 +12,34 @@ import { getRealData } from "@/app/actions/stock-actions";
 import { resetDemo, triggerDemandSpike } from "@/app/actions/demo-actions";
 import { runFullRiskScan } from "@/app/actions/scan-actions";
 export default function CommandCenterPage() {
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [inventory, setInventory] = useState<any[]>([]);
+  const recommendations = useStore((s) => s.recommendations);
+  const inventory = useStore((s) => s.inventory);
   const approveRecommendation = useStore((s) => s.approveRecommendation);
   const batchApproveRecommendations = useStore((s) => s.batchApproveRecommendations);
   const suppliers = useStore((s) => s.suppliers);
 
-  useEffect(() => {
-    getPendingDecisions().then(setRecommendations);
-    getRealData().then(data => setInventory(data.inventory));
-  }, []);
-
   const [selectedDecisionId, setSelectedDecisionId] = useState<string | null>(null);
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [filterLevel, setFilterLevel] = useState<string>("all");
 
   const pendingDecisions = useMemo(() => {
     return recommendations.filter(r => r.status === "new" || r.status === "needs_review");
   }, [recommendations]);
+
+  const filteredDecisions = useMemo(() => {
+    let filtered = pendingDecisions;
+    if (filterLevel !== "all") {
+      filtered = filtered.filter(d => d.urgency.toLowerCase() === filterLevel);
+    }
+    return filtered;
+  }, [pendingDecisions, filterLevel]);
+
+  const countAll = pendingDecisions.length;
+  const countCritical = pendingDecisions.filter(d => d.urgency === 'critical').length;
+  const countHigh = pendingDecisions.filter(d => d.urgency === 'high').length;
+  const countMedium = pendingDecisions.filter(d => d.urgency === 'medium').length;
+  const countLow = pendingDecisions.filter(d => d.urgency === 'low').length;
 
   // Derived metrics for summary cards
   const needsReviewCount = pendingDecisions.length || 7;
@@ -38,12 +48,6 @@ export default function CommandCenterPage() {
   const autoApprovedCount = 42; 
   const wasteAvoided = 18500; 
   const supplierIssues = 3; 
-
-  const handleBatchApprove = () => {
-    if (confirm(`Are you sure you want to batch approve ${pendingDecisions.length} decisions?`)) {
-      batchApproveRecommendations(pendingDecisions.map(d => d.id));
-    }
-  };
 
   return (
     <PageContainer>
@@ -93,7 +97,7 @@ export default function CommandCenterPage() {
               setIsScanning(true);
               await runFullRiskScan();
               setIsScanning(false);
-              setRecommendations(await getPendingDecisions());
+              window.location.reload();
             }}
             disabled={isScanning}
             className="flex items-center gap-2 px-3 py-2 bg-[var(--color-intelligence)] text-white rounded-md text-[13px] font-semibold hover:bg-[var(--color-intelligence-hover)] transition-colors shadow-sm disabled:opacity-50"
@@ -200,32 +204,36 @@ export default function CommandCenterPage() {
             
             {/* Tabs */}
             <div className="flex items-center gap-4 border-b border-border mb-4 pb-2">
-              <button className="text-[13px] font-semibold text-[var(--color-intelligence-text)] border-b-2 border-[var(--color-intelligence)] pb-2 -mb-[9px]">
-                All <span className="ml-1 text-[11px] bg-[var(--color-intelligence-muted)] px-1.5 py-0.5 rounded-full text-[var(--color-intelligence-text)]">7</span>
+              <button onClick={() => setFilterLevel('all')} className={`text-[13px] font-medium pb-2 ${filterLevel === 'all' ? 'font-semibold text-[var(--color-intelligence-text)] border-b-2 border-[var(--color-intelligence)] -mb-[9px]' : 'text-text-muted hover:text-text-primary'}`}>
+                All <span className="ml-1 text-[11px] bg-[var(--color-intelligence-muted)] px-1.5 py-0.5 rounded-full text-[var(--color-intelligence-text)]">{countAll}</span>
               </button>
-              <button className="text-[13px] font-medium text-text-muted hover:text-text-primary pb-2">
-                Critical <span className="ml-1 text-[11px] bg-surface-hover px-1.5 py-0.5 rounded-full">3</span>
+              <button onClick={() => setFilterLevel('critical')} className={`text-[13px] font-medium pb-2 ${filterLevel === 'critical' ? 'font-semibold text-[var(--color-intelligence-text)] border-b-2 border-[var(--color-intelligence)] -mb-[9px]' : 'text-text-muted hover:text-text-primary'}`}>
+                Critical <span className="ml-1 text-[11px] bg-surface-hover px-1.5 py-0.5 rounded-full">{countCritical}</span>
               </button>
-              <button className="text-[13px] font-medium text-text-muted hover:text-text-primary pb-2">
-                High <span className="ml-1 text-[11px] bg-surface-hover px-1.5 py-0.5 rounded-full">4</span>
+              <button onClick={() => setFilterLevel('high')} className={`text-[13px] font-medium pb-2 ${filterLevel === 'high' ? 'font-semibold text-[var(--color-intelligence-text)] border-b-2 border-[var(--color-intelligence)] -mb-[9px]' : 'text-text-muted hover:text-text-primary'}`}>
+                High <span className="ml-1 text-[11px] bg-surface-hover px-1.5 py-0.5 rounded-full">{countHigh}</span>
               </button>
-              <button className="text-[13px] font-medium text-text-muted hover:text-text-primary pb-2">
-                Medium <span className="ml-1 text-[11px] bg-surface-hover px-1.5 py-0.5 rounded-full">0</span>
+              <button onClick={() => setFilterLevel('medium')} className={`text-[13px] font-medium pb-2 ${filterLevel === 'medium' ? 'font-semibold text-[var(--color-intelligence-text)] border-b-2 border-[var(--color-intelligence)] -mb-[9px]' : 'text-text-muted hover:text-text-primary'}`}>
+                Medium <span className="ml-1 text-[11px] bg-surface-hover px-1.5 py-0.5 rounded-full">{countMedium}</span>
               </button>
-              <button className="text-[13px] font-medium text-text-muted hover:text-text-primary pb-2">
-                Low <span className="ml-1 text-[11px] bg-surface-hover px-1.5 py-0.5 rounded-full">0</span>
+              <button onClick={() => setFilterLevel('low')} className={`text-[13px] font-medium pb-2 ${filterLevel === 'low' ? 'font-semibold text-[var(--color-intelligence-text)] border-b-2 border-[var(--color-intelligence)] -mb-[9px]' : 'text-text-muted hover:text-text-primary'}`}>
+                Low <span className="ml-1 text-[11px] bg-surface-hover px-1.5 py-0.5 rounded-full">{countLow}</span>
               </button>
             </div>
 
             <div className="flex flex-col gap-3">
-              {pendingDecisions.map((decision) => (
-                <DecisionRow 
-                  key={decision.id} 
-                  decision={decision} 
-                  inventoryItem={inventory.find(i => i.id === decision.itemId && i.branchId === decision.branchId)}
-                  onReview={() => setSelectedDecisionId(decision.id)}
-                />
-              ))}
+              {filteredDecisions.length === 0 ? (
+                <div className="text-[13px] text-text-muted py-4 text-center">No decisions found for this filter.</div>
+              ) : (
+                filteredDecisions.map((decision) => (
+                  <DecisionRow 
+                    key={decision.id} 
+                    decision={decision} 
+                    inventoryItem={inventory.find(i => i.id === decision.itemId && i.branchId === decision.branchId)}
+                    onReview={() => setSelectedDecisionId(decision.id)}
+                  />
+                ))
+              )}
             </div>
 
             <div className="mt-4 pt-4 border-t border-border">
@@ -394,7 +402,11 @@ function DecisionRow({ decision, inventoryItem, onReview }: { decision: Recommen
         >
           Review
         </button>
-        <button className="p-1.5 text-text-muted hover:text-text-primary transition-colors border border-transparent hover:bg-border rounded-md">
+        <button 
+          disabled 
+          title="More options unavailable for this decision type" 
+          className="p-1.5 text-text-muted transition-colors border border-transparent rounded-md opacity-50 cursor-not-allowed"
+        >
           <MoreHorizontal className="w-4 h-4" />
         </button>
       </div>

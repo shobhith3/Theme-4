@@ -10,7 +10,7 @@ const PUBLIC_ROUTES = [
 const AUTH_API_PREFIX = "/api/auth";
 const PUBLIC_FILE = /\.(.*)$/;
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (

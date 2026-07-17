@@ -63,7 +63,6 @@ function LoginForm() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-[13px] font-semibold text-text-primary">Password</label>
-              <a href="#" className="text-[13px] font-medium text-[var(--color-accent)] hover:underline">Forgot?</a>
             </div>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
@@ -92,11 +91,7 @@ function LoginForm() {
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-border text-center">
-          <p className="text-[13px] text-text-secondary">
-            Don't have an account? <a href="#" className="font-semibold text-[var(--color-accent)] hover:underline">Create Account</a>
-          </p>
-        </div>
+
       </div>
     </div>
   );

@@ -23,12 +23,6 @@ export default async function ReportsPage() {
             <option>Last 90 Days</option>
             <option>Year to Date</option>
           </select>
-          <button 
-            className="flex items-center gap-2 px-3 py-2 bg-[var(--color-accent)] border border-[var(--color-accent)] rounded-md text-[13px] font-medium text-white hover:bg-[var(--color-accent-hover)] transition-colors shadow-sm"
-          >
-            <Download className="w-4 h-4" />
-            Export CSV
-          </button>
         </div>
       </div>
       <ReportsContent metrics={metrics} />

@@ -48,7 +48,7 @@ ${actionText}
 Write a concise explanation for a manager to review.`;
 
     const completion = await groq.chat.completions.create({
-      model: "llama3-70b-8192",
+      model: "openai/gpt-oss-120b",
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 150
     });

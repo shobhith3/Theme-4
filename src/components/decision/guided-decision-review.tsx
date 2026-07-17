@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getEngineDecisionForSku } from "@/app/actions/engine-actions";
-import { executeDecision } from "@/app/actions/execution-actions";
+import { executeDecision, rejectDecision } from "@/app/actions/execution-actions";
 import { EngineOutput } from "@/lib/engine/types";
 import React from "react";
 
@@ -156,10 +156,18 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
     }
   };
 
-  const confirmReject = () => {
+  const confirmReject = async () => {
     if (!rejectReason) return;
-    rejectRecommendation(decision.id, rejectReason);
-    onClose();
+    setIsLoading(true);
+    try {
+      await rejectDecision(decision.id, rejectReason);
+      rejectRecommendation(decision.id, rejectReason);
+      onClose();
+    } catch (e) {
+      console.error("Failed to reject decision", e);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isSuccess) {
@@ -183,12 +191,6 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                 <FileText className="w-4 h-4 text-text-muted" /> View Purchase Order
               </button>
             )}
-            <button
-              onClick={() => { onClose(); router.push('/approvals'); }}
-              className="flex items-center justify-center gap-2 w-full h-[44px] bg-white border border-border rounded-lg text-[14px] font-medium text-text-primary hover:bg-surface-hover transition-colors"
-            >
-              <CheckCircle2 className="w-4 h-4 text-text-muted" /> Go to Approval Center
-            </button>
             <button
               onClick={() => { onClose(); router.push('/command-center'); }}
               className="flex items-center justify-center gap-2 w-full h-[44px] bg-[var(--color-sidebar-bg)] text-white rounded-lg text-[14px] font-semibold hover:bg-black transition-colors"

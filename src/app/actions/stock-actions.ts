@@ -3,6 +3,7 @@
 import { getPrisma } from './engine-actions';
 import { revalidatePath } from 'next/cache';
 import { validateUserAccess } from '@/lib/auth-utils';
+import { getPendingDecisions } from './decision-actions';
 
 export async function getRealData() {
   const prisma = await getPrisma();
@@ -70,6 +71,8 @@ export async function getRealData() {
     isEnabled: rule.active,
     criteria: typeof rule.condition === 'string' ? JSON.parse(rule.condition) : rule.condition
   }));
+  
+  const pendingDecisions = await getPendingDecisions();
 
   return { 
     branches, 
@@ -82,7 +85,8 @@ export async function getRealData() {
       leadTimeBuffer: organization.leadTimeBuffer,
       sidebarCollapsed: false
     } : undefined,
-    autoApprovalRules
+    autoApprovalRules,
+    pendingDecisions
   };
 }
 

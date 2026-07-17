@@ -9,31 +9,26 @@ import { getRealData } from "@/app/actions/stock-actions";
 
 interface AppShellProps {
   children: React.ReactNode;
+  initialData?: any;
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, initialData }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const isSidebarCollapsed = useStore((s) => s.settings.sidebarCollapsed);
   const updateSettings = useStore((s) => s.updateSettings);
   const hydrateFromServer = useStore((s) => s.hydrateFromServer);
 
   useEffect(() => {
-    async function init() {
-      try {
-        // Hydrate store from database
-        const data = await getRealData();
-        hydrateFromServer({
-          branches: data.branches as any,
-          inventory: data.inventory as any,
-          suppliers: data.suppliers as any,
-          feedEvents: data.feedEvents as any
-        });
-      } catch (err) {
-        console.error("Failed to sync/hydrate:", err);
-      }
+    if (initialData) {
+      hydrateFromServer({
+        branches: initialData.branches as any,
+        inventory: initialData.inventory as any,
+        suppliers: initialData.suppliers as any,
+        feedEvents: initialData.feedEvents as any,
+        recommendations: initialData.pendingDecisions as any
+      });
     }
-    init();
-  }, [hydrateFromServer]);
+  }, [hydrateFromServer, initialData]);
 
   return (
     <>

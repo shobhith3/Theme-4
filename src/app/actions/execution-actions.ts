@@ -185,3 +185,23 @@ export async function executeDecision(input: ExecuteDecisionInput) {
     return { success: true, poId, transferId };
   });
 }
+
+export async function rejectDecision(decisionId: string, reason: string) {
+  const prisma = await getPrisma();
+  
+  return await prisma.$transaction(async (tx) => {
+    const decision = await tx.decision.findUnique({ where: { id: decisionId } });
+    if (!decision) throw new Error("Decision not found");
+    
+    // Validate user access to the branch this decision belongs to
+    await validateUserAccess(decision.branchId);
+    
+    return await tx.decision.update({
+      where: { id: decisionId },
+      data: { 
+        status: 'rejected',
+        dataPayload: JSON.stringify({ reason, originalPayload: decision.dataPayload ? JSON.parse(decision.dataPayload) : {} })
+      }
+    });
+  });
+}

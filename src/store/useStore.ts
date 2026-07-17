@@ -187,7 +187,7 @@ export interface StoreState {
 
   runScenario: (itemId: string, branchId: string, params: ScenarioParams) => void;
   resetToDefault: () => void;
-  hydrateFromServer: (data: { branches?: Branch[], inventory?: InventoryItem[], suppliers?: Supplier[], feedEvents?: FeedEvent[] }) => void;
+  hydrateFromServer: (data: { branches?: Branch[], inventory?: InventoryItem[], suppliers?: Supplier[], feedEvents?: FeedEvent[], recommendations?: Recommendation[] }) => void;
 }
 
 const defaultSettings: AppSettings = {
@@ -656,15 +656,17 @@ export const useStore = create<StoreState>()(
           settings: defaultSettings,
         }),
       hydrateFromServer: (data: any) =>
-        set((state) => ({
-          ...state,
-          ...(data.branches && { branches: data.branches }),
-          ...(data.inventory && { inventory: data.inventory }),
-          ...(data.suppliers && { suppliers: data.suppliers }),
-          ...(data.feedEvents && data.feedEvents.length > 0 && { feedEvents: data.feedEvents }),
-          ...(data.settings && { settings: { ...state.settings, ...data.settings } }),
-          ...(data.autoApprovalRules && { autoApprovalRules: data.autoApprovalRules }),
-        })),
+        set((state) => {
+          const updates = { ...state };
+          if (data.branches) updates.branches = data.branches;
+          if (data.inventory) updates.inventory = data.inventory;
+          if (data.suppliers) updates.suppliers = data.suppliers;
+          if (data.feedEvents) updates.feedEvents = data.feedEvents;
+          if (data.recommendations) updates.recommendations = data.recommendations;
+          if (data.settings) updates.settings = { ...state.settings, ...data.settings };
+          if (data.autoApprovalRules) updates.autoApprovalRules = data.autoApprovalRules;
+          return updates;
+        }),
     }),
     {
       name: "procureiq-storage",

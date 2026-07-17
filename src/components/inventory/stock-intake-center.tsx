@@ -5,7 +5,7 @@ import { X, ArrowLeft, PackagePlus, FilePlus2, FileSpreadsheet, Receipt, ArrowRi
 import { receiveStock, addOpeningStock, recordLoss, adjustStock, transferStock, getRealData } from "@/app/actions/stock-actions";
 import { Loader2 } from "lucide-react";
 
-type IntakeMode = "menu" | "receive" | "add" | "import" | "invoice" | "transfer" | "audit" | "loss";
+type IntakeMode = "menu" | "receive" | "add" | "transfer" | "audit" | "loss";
 
 export function StockIntakeCenter({ isOpen, onClose, inline = false }: { isOpen: boolean; onClose: () => void; inline?: boolean }) {
   const [mode, setMode] = useState<IntakeMode>("menu");
@@ -46,10 +46,8 @@ export function StockIntakeCenter({ isOpen, onClose, inline = false }: { isOpen:
               {mode === "menu" ? "Stock Intake Center" :
                 mode === "receive" ? "Receive Stock" :
                   mode === "add" ? "Add New Item" :
-                    mode === "import" ? "Import Excel" :
-                      mode === "invoice" ? "Upload Invoice" :
-                        mode === "transfer" ? "Transfer Stock" :
-                          mode === "audit" ? "Correct Stock Count" : "Record Loss"}
+                    mode === "transfer" ? "Transfer Stock" :
+                      mode === "audit" ? "Correct Stock Count" : "Record Loss"}
             </h2>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-surface rounded-md text-text-muted transition-colors">
@@ -69,8 +67,6 @@ export function StockIntakeCenter({ isOpen, onClose, inline = false }: { isOpen:
               {mode === "menu" && <MenuGrid onSelect={setMode} />}
               {mode === "receive" && <ReceiveForm onSuccess={() => handleSuccess("Stock added successfully.")} realData={realData} />}
               {mode === "add" && <AddForm onSuccess={() => handleSuccess("New item added.")} realData={realData} />}
-              {mode === "import" && <ImportForm onSuccess={() => handleSuccess("Items imported successfully.")} />}
-              {mode === "invoice" && <InvoiceForm onSuccess={() => handleSuccess("Invoice processed and stock added.")} realData={realData} />}
               {mode === "transfer" && <TransferForm onSuccess={() => handleSuccess("Stock transferred successfully.")} realData={realData} />}
               {mode === "audit" && <AuditForm onSuccess={() => handleSuccess("Stock count corrected.")} realData={realData} />}
               {mode === "loss" && <LossForm onSuccess={() => handleSuccess("Loss recorded successfully.")} realData={realData} />}
@@ -86,8 +82,6 @@ function MenuGrid({ onSelect }: { onSelect: (m: IntakeMode) => void }) {
   const options = [
     { id: "receive", title: "Receive stock", desc: "Add stock received from a supplier", icon: PackagePlus, color: "text-blue-600", bg: "bg-blue-50" },
     { id: "add", title: "Add new item", desc: "Create a new item and opening stock", icon: FilePlus2, color: "text-purple-600", bg: "bg-purple-50" },
-    { id: "import", title: "Import Excel", desc: "Bulk upload from spreadsheet", icon: FileSpreadsheet, color: "text-emerald-600", bg: "bg-emerald-50" },
-    { id: "invoice", title: "Upload invoice", desc: "Extract stock from supplier invoice", icon: Receipt, color: "text-indigo-600", bg: "bg-indigo-50" },
     { id: "transfer", title: "Transfer stock", desc: "Move stock between branches", icon: ArrowRightLeft, color: "text-amber-600", bg: "bg-amber-50" },
     { id: "audit", title: "Correct stock count", desc: "Fix discrepancies from physical count", icon: ClipboardCheck, color: "text-slate-600", bg: "bg-slate-50" },
     { id: "loss", title: "Record loss", desc: "Record expiry, damage, or wastage", icon: Trash2, color: "text-red-600", bg: "bg-red-50" },
@@ -256,118 +250,7 @@ function AddForm({ onSuccess, realData }: { onSuccess: () => void, realData: { b
   );
 }
 
-function ImportForm({ onSuccess }: { onSuccess: () => void }) {
-  const [file, setFile] = useState<File | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!file) return;
-    // Mock import logic
-    setTimeout(() => onSuccess(), 1000);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <div className="border-2 border-dashed border-border/80 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-surface hover:bg-surface-hover transition-colors">
-        <Upload className="w-8 h-8 text-text-muted mb-3" />
-        <p className="text-[14px] font-medium text-text-primary mb-1">Click to upload CSV or drag and drop</p>
-        <p className="text-[12px] text-text-secondary">Supported format: .csv, .xlsx</p>
-        <input type="file" accept=".csv,.xlsx" className="hidden" id="file-upload" onChange={e => setFile(e.target.files?.[0] || null)} />
-        <label htmlFor="file-upload" className="mt-4 px-4 py-2 bg-white border border-border rounded-lg text-[13px] font-medium cursor-pointer shadow-sm hover:border-border-strong">
-          Select File
-        </label>
-      </div>
-      {file && <p className="text-[13px] text-success font-medium flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> {file.name} ready for import.</p>}
-      <button type="button" className="text-[12px] font-medium text-[var(--color-accent)] hover:underline text-left">Download Sample CSV</button>
-      <button disabled={!file} type="submit" className="mt-2 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 text-white rounded-xl font-bold text-[14px] transition-colors">
-        Confirm Import
-      </button>
-    </form>
-  );
-}
-
-function InvoiceForm({ onSuccess, realData }: { onSuccess: () => void, realData: { branches: any[], suppliers: any[], inventory: any[] } }) {
-  const { inventory } = realData || { branches: [], suppliers: [], inventory: [] };
-  const [extracted, setExtracted] = useState(false);
-  const [isPending, startTransition] = useTransition();
-
-  const handleExtract = () => {
-    setExtracted(true);
-  };
-
-  const handleConfirm = () => {
-    startTransition(async () => {
-      try {
-        // Mock extracting standard items
-        const mockItems = [
-          { name: "Chicken Breast", qty: 40, unit: "kg" },
-          { name: "Tomatoes", qty: 25, unit: "kg" },
-          { name: "Paneer", qty: 10, unit: "kg" },
-        ];
-        
-        // Let's do them sequentially to avoid overloading the DB connections
-        for (const item of mockItems) {
-          const inv = inventory.find(i => i.name === item.name);
-          if (inv) {
-            await receiveStock({
-              itemId: inv.id,
-              branchId: inv.branchId,
-              supplierId: "dummy_supplier", // In real app, we'd lookup or have it
-              qty: item.qty,
-              reference: "Invoice Extraction"
-            });
-          }
-        }
-        
-        onSuccess();
-      } catch (err) {
-        console.error("Failed invoice processing:", err);
-        alert("Failed to process invoice.");
-      }
-    });
-  };
-
-  return (
-    <div className="flex flex-col gap-5">
-      {!extracted ? (
-        <>
-          <div className="border-2 border-dashed border-border/80 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-surface">
-            <Receipt className="w-8 h-8 text-text-muted mb-3" />
-            <p className="text-[14px] font-medium text-text-primary mb-3">Upload Supplier Invoice</p>
-            <button onClick={handleExtract} className="px-4 py-2 bg-white border border-border rounded-lg text-[13px] font-medium cursor-pointer shadow-sm hover:border-border-strong">
-              Use Sample Invoice
-            </button>
-          </div>
-          <p className="text-[11px] text-text-secondary text-center">In production, ProcureIQ extracts item and quantity details from supplier invoices using OCR.</p>
-        </>
-      ) : (
-        <div className="flex flex-col animate-in fade-in">
-          <div className="p-4 bg-surface border border-border rounded-xl">
-            <div className="text-[11px] font-bold uppercase text-text-muted tracking-wider mb-3">Detected Items (FreshRoute Foods)</div>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between text-[13px] font-medium text-text-primary border-b border-border/50 pb-2">
-                <span>Chicken Breast</span>
-                <span>40 kg @ ₹284/kg</span>
-              </div>
-              <div className="flex items-center justify-between text-[13px] font-medium text-text-primary border-b border-border/50 pb-2">
-                <span>Tomatoes</span>
-                <span>25 kg @ ₹42/kg</span>
-              </div>
-              <div className="flex items-center justify-between text-[13px] font-medium text-text-primary">
-                <span>Paneer</span>
-                <span>10 kg @ ₹320/kg</span>
-              </div>
-            </div>
-          </div>
-          <button disabled={isPending} onClick={handleConfirm} className="mt-6 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-70 text-white rounded-xl font-bold text-[14px] transition-colors flex justify-center items-center gap-2">
-            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-            Confirm & Add Stock
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function TransferForm({ onSuccess, realData }: { onSuccess: () => void, realData: { branches: any[], suppliers: any[], inventory: any[] } }) {
   const { inventory, branches } = realData || { branches: [], suppliers: [], inventory: [] };
