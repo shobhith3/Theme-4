@@ -2,11 +2,12 @@
 
 import { getPrisma } from './engine-actions';
 import { Recommendation } from '@/types';
+import { validateUserAccess } from '@/lib/auth-utils';
 
 export async function getPendingDecisions(): Promise<Recommendation[]> {
   const prisma = await getPrisma();
   
-  const { user } = await import('@/lib/auth-utils').then(m => m.validateUserAccess());
+  const { user } = await validateUserAccess();
 
   const decisions = await prisma.decision.findMany({
     where: { 

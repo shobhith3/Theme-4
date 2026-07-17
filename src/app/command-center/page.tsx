@@ -7,7 +7,10 @@ import { GuidedDecisionReview } from "@/components/decision/guided-decision-revi
 import { AlertTriangle, TrendingDown, RefreshCcw, PackageX, ShieldAlert, ArrowRight, Check, Plus, Calendar, Filter, MoreHorizontal, Truck } from "lucide-react";
 import Link from "next/link";
 import { Recommendation } from "@/types";
-
+import { getPendingDecisions } from "@/app/actions/decision-actions";
+import { getRealData } from "@/app/actions/stock-actions";
+import { resetDemo, triggerDemandSpike } from "@/app/actions/demo-actions";
+import { runFullRiskScan } from "@/app/actions/scan-actions";
 export default function CommandCenterPage() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
@@ -16,8 +19,8 @@ export default function CommandCenterPage() {
   const suppliers = useStore((s) => s.suppliers);
 
   useEffect(() => {
-    import('@/app/actions/decision-actions').then(m => m.getPendingDecisions().then(setRecommendations));
-    import('@/app/actions/stock-actions').then(m => m.getRealData().then(data => setInventory(data.inventory)));
+    getPendingDecisions().then(setRecommendations);
+    getRealData().then(data => setInventory(data.inventory));
   }, []);
 
   const [selectedDecisionId, setSelectedDecisionId] = useState<string | null>(null);
@@ -60,7 +63,6 @@ export default function CommandCenterPage() {
           <button 
             onClick={async () => {
               setIsScanning(true);
-              const { resetDemo } = await import('@/app/actions/demo-actions');
               await resetDemo();
               setIsScanning(false);
               window.location.reload();
@@ -75,7 +77,6 @@ export default function CommandCenterPage() {
           <button 
             onClick={async () => {
               setIsScanning(true);
-              const { triggerDemandSpike } = await import('@/app/actions/demo-actions');
               await triggerDemandSpike();
               setIsScanning(false);
               window.location.reload();
@@ -90,10 +91,8 @@ export default function CommandCenterPage() {
           <button 
             onClick={async () => {
               setIsScanning(true);
-              const { runFullRiskScan } = await import('@/app/actions/scan-actions');
               await runFullRiskScan();
               setIsScanning(false);
-              const { getPendingDecisions } = await import('@/app/actions/decision-actions');
               setRecommendations(await getPendingDecisions());
             }}
             disabled={isScanning}

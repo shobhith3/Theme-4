@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getEngineDecisionForSku } from "@/app/actions/engine-actions";
+import { executeDecision } from "@/app/actions/execution-actions";
 import { EngineOutput } from "@/lib/engine/types";
 import React from "react";
 
@@ -129,7 +130,6 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
         const sku = decision.id.startsWith('D-') ? decision.id : 'D-2048';
         
         // Execute the server action
-        const { executeDecision } = await import('@/app/actions/execution-actions');
         await executeDecision({
           itemSku: sku,
           destBranchName: decision.branchName,

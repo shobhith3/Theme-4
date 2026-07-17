@@ -5,6 +5,7 @@ import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { MobileNav } from "./mobile-nav";
 import { useStore } from "@/store/useStore";
+import { getRealData } from "@/app/actions/stock-actions";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -20,7 +21,6 @@ export function AppShell({ children }: AppShellProps) {
     async function init() {
       try {
         // Hydrate store from database
-        const { getRealData } = await import('@/app/actions/stock-actions');
         const data = await getRealData();
         hydrateFromServer({
           branches: data.branches as any,

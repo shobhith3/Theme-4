@@ -1,11 +1,10 @@
 'use server';
 
-import { getEngineDecisionForSku } from './engine-actions';
+import { getEngineDecisionForSku, getPrisma } from './engine-actions';
 import { generateExplanation } from '../../lib/llm';
 import { validateUserAccess } from '@/lib/auth-utils';
 
 export async function runFullRiskScan() {
-  const { getPrisma } = await import('./engine-actions');
   const prisma = await getPrisma();
   
   // Scope scan to current user's organization
