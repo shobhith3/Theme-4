@@ -5,12 +5,37 @@ export async function validateUserAccess(branchId?: string | null) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
-  const user = await prisma.user.findUnique({
+  let user = await prisma.user.findUnique({
     where: { clerkUserId: userId },
     include: { branchAccess: true }
   });
 
-  if (!user) throw new Error("User not found in system. Please sign in again.");
+  if (!user) {
+    const { currentUser } = await import('@clerk/nextjs/server');
+    const clerkUser = await currentUser();
+    if (!clerkUser) throw new Error("User not found in Clerk");
+
+    let org = await prisma.organization.findFirst({
+      where: { name: "FreshEats Co." }
+    });
+
+    if (!org) {
+      org = await prisma.organization.create({
+        data: { name: "FreshEats Co." }
+      });
+    }
+
+    user = await prisma.user.create({
+      data: {
+        clerkUserId: userId,
+        email: clerkUser.emailAddresses[0]?.emailAddress || "no-email@example.com",
+        name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || "New User",
+        role: "OWNER",
+        organizationId: org.id,
+      },
+      include: { branchAccess: true }
+    });
+  }
 
   if (branchId) {
     const hasAccess = user.branchAccess.some(ba => ba.branchId === branchId);

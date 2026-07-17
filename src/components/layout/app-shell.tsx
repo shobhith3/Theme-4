@@ -19,9 +19,6 @@ export function AppShell({ children }: AppShellProps) {
   useEffect(() => {
     async function init() {
       try {
-        // Sync clerk user to DB
-        await fetch('/api/auth/sync', { method: 'POST' });
-        
         // Hydrate store from database
         const { getRealData } = await import('@/app/actions/stock-actions');
         const data = await getRealData();
