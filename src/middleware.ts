@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { clerkMiddleware } from '@clerk/nextjs/server';
+import { NextResponse } from "next/server";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -9,7 +10,7 @@ const PUBLIC_ROUTES = [
 
 const PUBLIC_FILE = /\.(.*)$/;
 
-export function middleware(req: NextRequest) {
+export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl;
 
   if (
@@ -25,7 +26,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Clerk stores its session in the "__session" cookie
+  // Fallback to checking the session cookie manually for lightweight routing
   const session = req.cookies.get("__session")?.value;
 
   if (!session) {
@@ -35,7 +36,7 @@ export function middleware(req: NextRequest) {
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [
