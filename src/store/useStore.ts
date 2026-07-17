@@ -662,6 +662,8 @@ export const useStore = create<StoreState>()(
           ...(data.inventory && { inventory: data.inventory }),
           ...(data.suppliers && { suppliers: data.suppliers }),
           ...(data.feedEvents && data.feedEvents.length > 0 && { feedEvents: data.feedEvents }),
+          ...(data.settings && { settings: { ...state.settings, ...data.settings } }),
+          ...(data.autoApprovalRules && { autoApprovalRules: data.autoApprovalRules }),
         })),
     }),
     {

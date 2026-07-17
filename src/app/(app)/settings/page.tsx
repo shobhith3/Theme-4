@@ -3,8 +3,9 @@
 import { PageContainer } from "@/components/common/page-container";
 import { PageHeader } from "@/components/common/page-header";
 import { useStore } from "@/store/useStore";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { CheckCircle2 } from "lucide-react";
+import { updateOrganizationSettings, toggleAutoApprovalRule } from "@/app/actions/settings-actions";
 
 export default function SettingsPage() {
   const { settings, updateSettings, autoApprovalRules, updateAutoApprovalRule } = useStore();
@@ -26,15 +27,29 @@ export default function SettingsPage() {
     setLeadTime(settings.leadTimeBuffer);
   }, [settings]);
 
-  const handleSave = () => {
-    updateSettings({
-      organizationName: orgName,
-      currency: currency,
-      leadTimeBuffer: Number(leadTime),
-    });
+  const [isPending, startTransition] = useTransition();
 
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+  const handleSave = () => {
+    startTransition(async () => {
+      try {
+        await updateOrganizationSettings({
+          name: orgName,
+          currency,
+          leadTimeBuffer: Number(leadTime),
+        });
+        
+        updateSettings({
+          organizationName: orgName,
+          currency: currency,
+          leadTimeBuffer: Number(leadTime),
+        });
+
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      } catch (e) {
+        console.error("Failed to save settings", e);
+      }
+    });
   };
 
   return (
@@ -123,8 +138,12 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="pt-4 mt-2 border-t border-border">
-                  <button onClick={handleSave} className="px-4 py-2 bg-[var(--color-sidebar-bg)] text-white rounded-md text-[13px] font-medium hover:bg-black transition-colors shadow-sm">
-                    Save Changes
+                  <button 
+                    onClick={handleSave} 
+                    disabled={isPending}
+                    className="px-4 py-2 bg-[var(--color-sidebar-bg)] text-white rounded-md text-[13px] font-medium hover:bg-black transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isPending ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </div>
@@ -153,9 +172,21 @@ export default function SettingsPage() {
                         type="checkbox" 
                         checked={rule.isEnabled} 
                         onChange={(e) => {
-                          updateAutoApprovalRule(rule.id, e.target.checked);
-                          setShowToast(true);
-                          setTimeout(() => setShowToast(false), 3000);
+                          const checked = e.target.checked;
+                          // Optimistic update
+                          updateAutoApprovalRule(rule.id, checked);
+                          
+                          startTransition(async () => {
+                            try {
+                              await toggleAutoApprovalRule(rule.id, checked);
+                              setShowToast(true);
+                              setTimeout(() => setShowToast(false), 3000);
+                            } catch (error) {
+                              // Revert if failed
+                              updateAutoApprovalRule(rule.id, !checked);
+                              console.error("Failed to toggle rule", error);
+                            }
+                          });
                         }} 
                         className="sr-only peer" 
                       />

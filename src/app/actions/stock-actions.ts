@@ -54,7 +54,36 @@ export async function getRealData() {
     branchName: "" // Optional mapping if needed
   }));
 
-  return { branches, suppliers, inventory, feedEvents };
+  const organization = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { name: true, currency: true, leadTimeBuffer: true }
+  });
+
+  const dbRules = await prisma.autoApprovalRule.findMany({
+    where: { organizationId: orgId }
+  });
+
+  const autoApprovalRules = dbRules.map(rule => ({
+    id: rule.id,
+    name: rule.name || "Unnamed Rule",
+    description: rule.description || "",
+    isEnabled: rule.active,
+    criteria: typeof rule.condition === 'string' ? JSON.parse(rule.condition) : rule.condition
+  }));
+
+  return { 
+    branches, 
+    suppliers, 
+    inventory, 
+    feedEvents,
+    settings: organization ? {
+      organizationName: organization.name,
+      currency: organization.currency,
+      leadTimeBuffer: organization.leadTimeBuffer,
+      sidebarCollapsed: false
+    } : undefined,
+    autoApprovalRules
+  };
 }
 
 export async function receiveStock(input: {

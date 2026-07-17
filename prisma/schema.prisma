@@ -7,11 +7,13 @@ datasource db {
 }
 
 model Organization {
-  id        String     @id @default(cuid())
-  name      String
-  branches  Branch[]
-  users     User[]
-  members   OrganizationMember[]
+  id             String     @id @default(cuid())
+  name           String
+  currency       String     @default("USD")
+  leadTimeBuffer Int        @default(3)
+  branches       Branch[]
+  users          User[]
+  members        OrganizationMember[]
   roles     Role[]
   invites   Invite[]
   items     Item[]
@@ -306,6 +308,8 @@ model AutoApprovalRule {
   id             String        @id @default(cuid())
   organizationId String
   organization   Organization  @relation(fields: [organizationId], references: [id])
+  name           String?
+  description    String?
   condition      String        // JSON payload
   action         String        // JSON payload
   active         Boolean       @default(true)
