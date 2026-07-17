@@ -1,5 +1,5 @@
-export type ItemCategory = "protein" | "dairy" | "produce" | "grain" | "oil" | "spice" | "other";
-export type ItemUnit = "kg" | "litre" | "dozen" | "units" | "grams";
+export type ItemCategory = "protein" | "dairy" | "produce" | "grain" | "oil" | "spice" | "frozen" | "beverage" | "packaging" | "cleaning" | "other";
+export type ItemUnit = "kg" | "litre" | "L" | "dozen" | "units" | "grams" | "bottle" | "box" | "cup";
 
 export interface InventoryItem {
   id: string;

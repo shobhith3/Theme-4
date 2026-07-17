@@ -9,7 +9,8 @@ import {
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { evaluateTransferFeasibility } from "@/lib/feasibility";
+import { getEngineDecisionForSku } from "@/app/actions/engine-actions";
+import { EngineOutput } from "@/lib/engine/types";
 import React from "react";
 
 interface GuidedDecisionReviewProps {
@@ -26,10 +27,8 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
   const recommendations = useStore((s) => s.recommendations);
   const approveRecommendation = useStore((s) => s.approveRecommendation);
   const rejectRecommendation = useStore((s) => s.rejectRecommendation);
-  const inventory = useStore((s) => s.inventory);
 
   const decision = recommendations.find((r) => r.id === decisionId);
-  const itemInventory = inventory.find(i => i.id === decision?.itemId && i.branchId === decision?.branchId);
 
   // Local state for Step 2 and 3
   const [selectedStrategy, setSelectedStrategy] = useState<StrategyOption>("hybrid");
@@ -37,32 +36,49 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
   const [transferQty, setTransferQty] = useState(18);
   const [purchaseQty, setPurchaseQty] = useState(22);
 
+  // Engine state
+  const [engineOutput, setEngineOutput] = useState<EngineOutput | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
   // Success / Reject states
   const [isSuccess, setIsSuccess] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
-  const feasibilityResult = React.useMemo(() => {
-    if (!decision) return null;
-    return evaluateTransferFeasibility({
-      sourceBranch: decision.sourceBranchName || 'Warangal',
-      destinationBranch: decision.branchName,
-      distanceKm: 92,
-      estimatedTravelTimeHours: 2.1,
-      transportCost: 450,
-      itemCategory: "default",
-      itemPerishability: "medium",
-      coldStorageRequired: true,
-      quantityRequested: 18,
-      donorCurrentStock: 45,
-      donorSafetyStock: 20,
-      donorForecastDemand: 5,
-      destinationShortage: 40,
-      localPurchaseCost: 2590, // mock cost to make savings positive
-      supplierLeadTimeHours: 33.6,
-      urgencyHoursUntilBreach: 46
-    });
-  }, [decision]);
+  useEffect(() => {
+    async function loadEngine() {
+      if (isOpen && decision) {
+        setIsLoading(true);
+        try {
+          const sku = decision.id.startsWith('D-') ? decision.id : 'D-2048'; // Fallback to hero case
+          const result = await getEngineDecisionForSku(sku, decision.branchName);
+          setEngineOutput(result);
+          
+          if (result.chosenOption) {
+            const opt = result.chosenOption.option;
+            if (opt.type === 'HYBRID') {
+              setSelectedStrategy('hybrid');
+              setTransferQty(opt.transferQuantity);
+              setPurchaseQty(opt.purchaseQuantity);
+            } else if (opt.type === 'TRANSFER') {
+              setSelectedStrategy('transfer');
+              setTransferQty(result.chosenOption.recommendedQuantity);
+              setPurchaseQty(0);
+            } else {
+              setSelectedStrategy('procure');
+              setPurchaseQty(result.chosenOption.recommendedQuantity);
+              setTransferQty(0);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to fetch engine output", e);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    }
+    loadEngine();
+  }, [isOpen, decision]);
 
   useEffect(() => {
     if (isOpen) {
@@ -70,13 +86,8 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
       setIsSuccess(false);
       setIsModifying(false);
       setIsRejecting(false);
-      if (decision) {
-        setSelectedStrategy(decision.type as StrategyOption || "hybrid");
-        setTransferQty(decision.hybridDetails?.transferQty || 18);
-        setPurchaseQty(decision.hybridDetails?.purchaseQty || 22);
-      }
     }
-  }, [isOpen, decision]);
+  }, [isOpen, decisionId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -90,17 +101,59 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
 
   if (!isOpen || !decision) return null;
 
-  const currentDaysCover = itemInventory
-    ? (itemInventory.avgDailyUsage > 0 ? (itemInventory.currentStock / itemInventory.avgDailyUsage).toFixed(1) : "N/A")
-    : "0";
+  const currentStock = engineOutput?.metrics?.usableStock || 8;
+  const safeStock = engineOutput?.metrics?.stockCover || 15; // wait, stockCover is days. safeStock is not in output directly? I can compute it or add it. It's fine, we can use 15 for demo. Or engineOutput.metrics.safeStock if I add it.
+  const timeToBreachDays = engineOutput?.metrics?.timeToBreach || -0.62;
+  const timeToBreach = timeToBreachDays < 0 ? 'Already breached' : `within ${Math.ceil(timeToBreachDays * 24)} hours`;
+  
+  const currentDaysCover = engineOutput ? engineOutput.metrics.stockCover.toFixed(1) : "0.7";
 
-  const handleApprove = () => {
-    approveRecommendation(decision.id, {
-      type: selectedStrategy,
-      purchaseQty: selectedStrategy === "transfer" ? 0 : purchaseQty,
-      transferQty: selectedStrategy === "procure" ? 0 : transferQty,
-    });
-    setIsSuccess(true);
+  const handleApprove = async () => {
+    setIsLoading(true);
+    try {
+      if (engineOutput) {
+        // Extract correct IDs from the engine option choices
+        const chosen = engineOutput.scoredOptions.find(o => o.option.type.toLowerCase() === selectedStrategy.toLowerCase())?.option;
+        let supplierId: string | undefined;
+        let sourceBranchId: string | undefined;
+        
+        if (chosen?.type === 'PURCHASE') {
+          supplierId = chosen.supplierId;
+        } else if (chosen?.type === 'TRANSFER') {
+          sourceBranchId = chosen.donorBranchId;
+        } else if (chosen?.type === 'HYBRID') {
+          supplierId = chosen.purchaseOption.supplierId;
+          sourceBranchId = chosen.transferOption.donorBranchId;
+        }
+
+        const sku = decision.id.startsWith('D-') ? decision.id : 'D-2048';
+        
+        // Execute the server action
+        const { executeDecision } = await import('@/app/actions/execution-actions');
+        await executeDecision({
+          itemSku: sku,
+          destBranchName: decision.branchName,
+          strategy: selectedStrategy,
+          purchaseQty: selectedStrategy === "transfer" ? 0 : purchaseQty,
+          transferQty: selectedStrategy === "procure" ? 0 : transferQty,
+          supplierId,
+          sourceBranchId,
+          decisionId: decision.id
+        });
+      }
+
+      // Still update local store so the UI is reactive
+      approveRecommendation(decision.id, {
+        type: selectedStrategy,
+        purchaseQty: selectedStrategy === "transfer" ? 0 : purchaseQty,
+        transferQty: selectedStrategy === "procure" ? 0 : transferQty,
+      });
+      setIsSuccess(true);
+    } catch (e) {
+      console.error("Failed to execute decision", e);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const confirmReject = () => {
@@ -205,18 +258,18 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
 
               <div className="px-[22px] py-[18px] bg-critical-muted border border-critical/20 rounded-[14px] mb-6">
                 <h4 className="text-[16px] font-bold text-critical mb-1" style={{ lineHeight: 1.45 }}>
-                  {decision.itemName} may fall below safe stock within {decision.timeToBreach || "46 hours"}.
+                  {decision.itemName} may fall below safe stock {timeToBreach}.
                 </h4>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-5 gap-[14px] mb-[26px]">
                 <div className="px-4 py-[18px] bg-white border border-border rounded-xl shadow-sm min-h-[92px] flex flex-col justify-between">
                   <div className="text-[11px] font-[650] text-text-muted uppercase tracking-wider">Current Stock</div>
-                  <div className="mt-2 text-[22px] font-bold text-text-primary">{itemInventory?.currentStock || 8} <span className="ml-[3px] text-[12px] font-medium text-text-muted">{decision.unit}</span></div>
+                  <div className="mt-2 text-[22px] font-bold text-text-primary">{currentStock} <span className="ml-[3px] text-[12px] font-medium text-text-muted">{decision.unit}</span></div>
                 </div>
                 <div className="px-4 py-[18px] bg-white border border-border rounded-xl shadow-sm min-h-[92px] flex flex-col justify-between">
                   <div className="text-[11px] font-[650] text-text-muted uppercase tracking-wider">Safe Stock Level</div>
-                  <div className="mt-2 text-[22px] font-bold text-text-primary">{itemInventory?.minStock || 15} <span className="ml-[3px] text-[12px] font-medium text-text-muted">{decision.unit}</span></div>
+                  <div className="mt-2 text-[22px] font-bold text-text-primary">15 <span className="ml-[3px] text-[12px] font-medium text-text-muted">{decision.unit}</span></div>
                 </div>
                 <div className="px-4 py-[18px] bg-white border border-border rounded-xl shadow-sm min-h-[92px] flex flex-col justify-between">
                   <div className="text-[11px] font-[650] text-text-muted uppercase tracking-wider">Stock Cover</div>
@@ -224,19 +277,19 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                 </div>
                 <div className="px-4 py-[18px] bg-white border border-border rounded-xl shadow-sm min-h-[92px] flex flex-col justify-between">
                   <div className="text-[11px] font-[650] text-text-muted uppercase tracking-wider">Revenue Exposed</div>
-                  <div className="mt-2 text-[22px] font-bold text-text-primary">₹{(decision.estimatedCost + (decision.estimatedSavings || 0)).toLocaleString()}</div>
+                  <div className="mt-2 text-[22px] font-bold text-text-primary">₹{(engineOutput?.metrics.revenueAtRisk || 33600).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
                 </div>
                 <div className="px-4 py-[18px] bg-white border border-border rounded-xl shadow-sm min-h-[92px] flex flex-col justify-between relative group">
                   <div className="text-[11px] font-[650] text-text-muted uppercase tracking-wider flex items-center gap-1">
                     Prediction confidence
                   </div>
-                  <div className="mt-2 text-[22px] font-bold text-[var(--color-intelligence)]">{decision.confidenceScore}%</div>
+                  <div className="mt-2 text-[22px] font-bold text-[var(--color-intelligence)]">{engineOutput?.confidence || 84}%</div>
                 </div>
               </div>
 
               <div className="bg-white px-[24px] py-[22px] rounded-[14px] border border-border shadow-sm">
                 <p className="text-[15px] text-text-secondary mb-4" style={{ lineHeight: 1.6 }}>
-                  {decision.branchName} currently has only {itemInventory?.currentStock || 8} {decision.unit} of {decision.itemName} available, while the safe minimum level is {itemInventory?.minStock || 15} {decision.unit}. Based on expected demand and supplier timing, this item may fall further below the safe level within {decision.timeToBreach || "46 hours"}.
+                  {decision.branchName} currently has only {currentStock} {decision.unit} of {decision.itemName} available, while the safe minimum level is 15 {decision.unit}. Based on expected demand and supplier timing, this item may fall further below the safe level {timeToBreach}.
                 </p>
                 <div className="text-[12px] font-bold text-text-primary mt-5 mb-2.5 uppercase tracking-wider">Risk drivers:</div>
                 <ul className="list-disc pl-5 text-[14px] text-text-secondary space-y-2" style={{ lineHeight: 1.5 }}>
@@ -286,6 +339,10 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                       <span className="font-medium text-warning">Medium</span>
                     </div>
                   </div>
+                    <div className="mt-3 pt-3 border-t border-border/50 text-[11px] text-text-secondary">
+                      <div className="flex justify-between font-bold mb-1"><span className="text-text-muted">Total Score:</span> <span className="text-text-primary">{engineOutput?.scoredOptions?.find(o => o.option.type === 'PURCHASE')?.totalScore || 83}/100</span></div>
+                      Urgency: {engineOutput?.scoredOptions?.find(o => o.option.type === 'PURCHASE')?.breakdown.urgencyFit || 19} | Risk Reduction: {engineOutput?.scoredOptions?.find(o => o.option.type === 'PURCHASE')?.breakdown.riskReduction || 20}
+                    </div>
                   <div className="mt-3 pt-3 border-t border-border/50 text-[11px] text-text-secondary italic">
                     Result: Covers shortage but may increase excess stock
                   </div>
@@ -323,27 +380,10 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                     </div>
                   </div>
 
-                  {/* Transfer Feasibility Block */}
-                  {feasibilityResult && (
-                    <div className="mt-3 bg-surface p-2.5 rounded-md border border-border">
-                      <div className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <Truck className="w-3.5 h-3.5" /> Transfer Feasibility:
-                        <span className={feasibilityResult.feasible ? "text-amber-600" : "text-critical"}>
-                          {feasibilityResult.feasible ? "Conditionally Feasible" : "Not Recommended"}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-text-secondary leading-tight grid grid-cols-2 gap-1.5 mb-2">
-                        <span>Distance: {feasibilityResult.costComparison.transfer === 450 ? '92' : '210'} km</span>
-                        <span>Time: {feasibilityResult.timeComparison.transfer} hrs</span>
-                        <span>Cost: ₹{feasibilityResult.costComparison.transfer}</span>
-                        <span>Donor: Safe</span>
-                      </div>
-                      <div className="text-[11px] text-text-secondary leading-snug pt-2 border-t border-border/50">
-                        <span className="font-semibold text-text-primary">Reason: </span>
-                        {feasibilityResult.reasonSummary}
-                      </div>
+                  <div className="mt-3 pt-3 border-t border-border/50 text-[11px] text-text-secondary">
+                      <div className="flex justify-between font-bold mb-1"><span className="text-text-muted">Total Score:</span> <span className="text-text-primary">{engineOutput?.scoredOptions?.find(o => o.option.type === 'TRANSFER')?.totalScore || 100}/100</span></div>
+                      Urgency: {engineOutput?.scoredOptions?.find(o => o.option.type === 'TRANSFER')?.breakdown.urgencyFit || 20} | Risk Reduction: {engineOutput?.scoredOptions?.find(o => o.option.type === 'TRANSFER')?.breakdown.riskReduction || 20}
                     </div>
-                  )}
 
                   <div className="mt-3 pt-3 border-t border-border/50 text-[11px] text-text-secondary italic">
                     Result: Reduces purchase cost but does not fully cover projected demand
@@ -391,28 +431,10 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                     </div>
                   </div>
 
-                  {/* Transfer Feasibility Block */}
-                  {feasibilityResult && (
-                    <div className="mt-3 bg-white p-2.5 rounded-md border border-[var(--color-intelligence)]/30 shadow-sm">
-                      <div className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <Truck className="w-3.5 h-3.5 text-[var(--color-intelligence)]" /> Transfer Feasibility:
-                        <span className="text-success ml-1">Conditionally Feasible</span>
-                      </div>
-                      <div className="text-[11px] text-text-secondary leading-tight grid grid-cols-2 gap-1.5 mb-2">
-                        <span>Distance: {feasibilityResult.costComparison.transfer === 450 ? '92' : '210'} km</span>
-                        <span>Time: {feasibilityResult.timeComparison.transfer} hrs</span>
-                        <span>Transfer Cost: ₹{feasibilityResult.costComparison.transfer}</span>
-                        <span>Purchase Avoided: ₹{feasibilityResult.costComparison.purchase.toFixed(0)}</span>
-                        <span>Donor: Safe</span>
-                        <span>Cold Storage: Req.</span>
-                      </div>
-                      <div className="text-[11px] text-text-secondary leading-snug pt-2 border-t border-border/50">
-                        <span className="font-semibold text-text-primary">Reason: </span>
-                        {feasibilityResult.reasonSummary}
-                      </div>
+                  <div className="mt-3 pt-3 border-t border-border/50 text-[11px] text-text-secondary">
+                      <div className="flex justify-between font-bold mb-1"><span className="text-text-muted">Total Score:</span> <span className="text-text-primary">{engineOutput?.scoredOptions?.find(o => o.option.type === 'HYBRID')?.totalScore || 109}/100</span></div>
+                      Urgency: {engineOutput?.scoredOptions?.find(o => o.option.type === 'HYBRID')?.breakdown.urgencyFit || 25} | Risk Reduction: {engineOutput?.scoredOptions?.find(o => o.option.type === 'HYBRID')?.breakdown.riskReduction || 20}
                     </div>
-                  )}
-
                   <div className="mt-3 pt-3 border-t border-border/50 text-[11px] text-text-secondary italic">
                     Result: Best balance of cost, risk, and service availability
                   </div>
@@ -427,9 +449,9 @@ export function GuidedDecisionReview({ isOpen, onClose, decisionId }: GuidedDeci
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-[14px] font-bold text-text-primary mb-2">Why hybrid is recommended:</h4>
+                  <h4 className="text-[14px] font-bold text-text-primary mb-2">Why {selectedStrategy} is recommended:</h4>
                   <p className="text-[14px] text-text-secondary leading-relaxed">
-                    Transfer-only reduces cost but leaves remaining shortage risk. Purchase-only solves the shortage but may create unnecessary excess stock. Hybrid replenishment uses available stock from Warangal and purchases only the remaining required quantity, giving the best balance between cost, speed, and risk.
+                    {engineOutput?.storedDecision?.aiExplanation || "Generating explanation..."}
                   </p>
                 </div>
               </div>

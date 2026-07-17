@@ -18,7 +18,13 @@
   --color-accent-hover: #0B493E;
   --color-accent-muted: #E8F1EE;
   
-  --color-intelligence: #B8FF5A;
+  --color-intelligence: #8FAF4D;
+  --color-intelligence-hover: #7C9F3F;
+  --color-intelligence-muted: #F3F7E8;
+  --color-intelligence-border: #D9E8B8;
+  --color-intelligence-text: #6F8F32;
+  --color-intelligence-text-dark: #4F6F1F;
+  --color-intelligence-muted-dark: #A8BE72;
   
   --color-critical: #C74848;
   --color-critical-muted: #FBEAEA;

@@ -10,6 +10,8 @@ import { useMemo, useState, useEffect } from "react";
 import { StockIntakeCenter } from "@/components/inventory/stock-intake-center";
 import { StockLedgerTable } from "@/components/inventory/stock-ledger-table";
 import { InventoryItem } from "@/types";
+import { GuidedDecisionReview } from "@/components/decision/guided-decision-review";
+import { ItemDetailDrawer } from "@/components/inventory/item-detail-drawer";
 
 export default function InventoryContent() {
   const searchParams = useSearchParams();
@@ -24,6 +26,7 @@ export default function InventoryContent() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [activeTab, setActiveTab] = useState<"current" | "ledger">("current");
   const [isMounted, setIsMounted] = useState(false);
+  const [selectedDecisionId, setSelectedDecisionId] = useState<string | null>(null);
 
   // Initialize from URL params once
   useEffect(() => {
@@ -72,13 +75,12 @@ export default function InventoryContent() {
         return (
           <div className="flex items-center gap-3 justify-end">
             {rec ? (
-              <a
-                href={`/recommendations?id=${rec.id}`}
-                onClick={(e) => e.stopPropagation()}
+              <button
+                onClick={(e) => { e.stopPropagation(); setSelectedDecisionId(rec.id); }}
                 className="text-[13px] font-medium text-[var(--color-accent)] hover:underline"
               >
                 Review Decision
-              </a>
+              </button>
             ) : null}
             <button
               onClick={(e) => { e.stopPropagation(); setSelectedItem(item); }}
@@ -190,51 +192,15 @@ export default function InventoryContent() {
       )}
 
       {/* Detail Drawer overlay */}
-      {selectedItem && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm transition-opacity">
-          <div className="w-[480px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="flex items-center justify-between p-5 border-b border-border/50">
-              <div className="flex flex-col">
-                <h3 className="text-[18px] font-bold text-text-primary">{selectedItem.name}</h3>
-                <span className="text-[13px] text-text-secondary">{branches.find(b => b.id === selectedItem.branchId)?.name || selectedItem.branchId} • {selectedItem.category}</span>
-              </div>
-              <button onClick={() => setSelectedItem(null)} className="p-2 hover:bg-surface rounded-full text-text-muted hover:text-text-primary transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 flex flex-col gap-6 overflow-y-auto">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between py-2 border-b border-border/50">
-                  <span className="text-[13px] text-text-secondary">On Hand</span>
-                  <span className="text-[14px] font-bold tabular-nums">{selectedItem.currentStock} {selectedItem.unit}</span>
-                </div>
-                <div className="flex items-center justify-between py-2 border-b border-border/50">
-                  <span className="text-[13px] text-text-secondary">Incoming</span>
-                  <span className="text-[14px] font-bold tabular-nums">0 {selectedItem.unit}</span>
-                </div>
-                <div className="flex items-center justify-between py-2 border-b border-border/50">
-                  <span className="text-[13px] text-text-secondary">Safety Stock</span>
-                  <span className="text-[14px] font-bold tabular-nums">{selectedItem.minStock} {selectedItem.unit}</span>
-                </div>
-                <div className="flex items-center justify-between py-2 border-b border-border/50">
-                  <span className="text-[13px] text-text-secondary">Days Cover</span>
-                  <span className="text-[14px] font-bold tabular-nums">{selectedItem.avgDailyUsage > 0 ? (selectedItem.currentStock / selectedItem.avgDailyUsage).toFixed(0) : 'N/A'}d</span>
-                </div>
-                <div className="flex items-center justify-between py-2 border-b border-border/50">
-                  <span className="text-[13px] text-text-secondary">Unit Cost</span>
-                  <span className="text-[14px] font-bold tabular-nums">₹{selectedItem.unitCost?.toLocaleString() || 0}</span>
-                </div>
-              </div>
-              <div className="flex flex-col gap-3 p-4 bg-surface rounded-xl border border-border/50">
-                <h4 className="text-[13px] font-bold uppercase tracking-wider text-text-muted">AI Insights</h4>
-                <p className="text-[14px] text-text-secondary leading-relaxed">
-                  Demand is trending up by 5%.
-                  {selectedItem.currentStock <= selectedItem.minStock * 1.5 ? ' Risk of stockout detected.' : ' Inventory levels are stable.'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+      <ItemDetailDrawer item={selectedItem} onClose={() => setSelectedItem(null)} />
+
+      
+      {selectedDecisionId && (
+        <GuidedDecisionReview
+          isOpen={true}
+          decisionId={selectedDecisionId}
+          onClose={() => setSelectedDecisionId(null)}
+        />
       )}
     </>
   );

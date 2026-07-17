@@ -2,21 +2,27 @@
 
 import { PageContainer } from "@/components/common/page-container";
 import { useStore } from "@/store/useStore";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { GuidedDecisionReview } from "@/components/decision/guided-decision-review";
 import { AlertTriangle, TrendingDown, RefreshCcw, PackageX, ShieldAlert, ArrowRight, Check, Plus, Calendar, Filter, MoreHorizontal, Truck } from "lucide-react";
 import Link from "next/link";
 import { Recommendation } from "@/types";
 
 export default function CommandCenterPage() {
-  const recommendations = useStore((s) => s.recommendations);
-  const inventory = useStore((s) => s.inventory);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
   const approveRecommendation = useStore((s) => s.approveRecommendation);
   const batchApproveRecommendations = useStore((s) => s.batchApproveRecommendations);
   const suppliers = useStore((s) => s.suppliers);
 
+  useEffect(() => {
+    import('@/app/actions/decision-actions').then(m => m.getPendingDecisions().then(setRecommendations));
+    import('@/app/actions/stock-actions').then(m => m.getRealData().then(data => setInventory(data.inventory)));
+  }, []);
+
   const [selectedDecisionId, setSelectedDecisionId] = useState<string | null>(null);
   const [newMenuOpen, setNewMenuOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   const pendingDecisions = useMemo(() => {
     return recommendations.filter(r => r.status === "new" || r.status === "needs_review");
@@ -51,15 +57,56 @@ export default function CommandCenterPage() {
             21 May 2025
           </button>
           
-          <button className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-md text-[13px] font-medium text-text-secondary hover:text-text-primary transition-colors">
-            <Filter className="w-4 h-4" />
-            Filters
+          <button 
+            onClick={async () => {
+              setIsScanning(true);
+              const { resetDemo } = await import('@/app/actions/demo-actions');
+              await resetDemo();
+              setIsScanning(false);
+              window.location.reload();
+            }}
+            disabled={isScanning}
+            className="flex items-center gap-2 px-3 py-2 bg-critical/10 border border-critical/20 text-critical rounded-md text-[13px] font-medium hover:bg-critical/20 transition-colors disabled:opacity-50"
+          >
+            <RefreshCcw className="w-4 h-4" />
+            Reset Demo
+          </button>
+
+          <button 
+            onClick={async () => {
+              setIsScanning(true);
+              const { triggerDemandSpike } = await import('@/app/actions/demo-actions');
+              await triggerDemandSpike();
+              setIsScanning(false);
+              window.location.reload();
+            }}
+            disabled={isScanning}
+            className="flex items-center gap-2 px-3 py-2 bg-warning/10 border border-warning/20 text-warning rounded-md text-[13px] font-medium hover:bg-warning/20 transition-colors disabled:opacity-50"
+          >
+            <TrendingDown className="w-4 h-4" />
+            Demand Spike
+          </button>
+
+          <button 
+            onClick={async () => {
+              setIsScanning(true);
+              const { runFullRiskScan } = await import('@/app/actions/scan-actions');
+              await runFullRiskScan();
+              setIsScanning(false);
+              const { getPendingDecisions } = await import('@/app/actions/decision-actions');
+              setRecommendations(await getPendingDecisions());
+            }}
+            disabled={isScanning}
+            className="flex items-center gap-2 px-3 py-2 bg-[var(--color-intelligence)] text-white rounded-md text-[13px] font-semibold hover:bg-[var(--color-intelligence-hover)] transition-colors shadow-sm disabled:opacity-50"
+          >
+            <RefreshCcw className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} />
+            {isScanning ? 'Scanning...' : 'Run Risk Scan'}
           </button>
           
-          <div className="relative">
+          <div className="relative ml-2">
             <button 
               onClick={() => setNewMenuOpen(!newMenuOpen)}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--color-intelligence)] text-white rounded-md text-[13px] font-semibold hover:bg-[var(--color-intelligence)]/90 transition-colors shadow-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--color-intelligence)] text-white rounded-md text-[13px] font-semibold hover:bg-[var(--color-intelligence-hover)] transition-colors shadow-sm"
             >
               <Plus className="w-4 h-4" />
               New
@@ -154,8 +201,8 @@ export default function CommandCenterPage() {
             
             {/* Tabs */}
             <div className="flex items-center gap-4 border-b border-border mb-4 pb-2">
-              <button className="text-[13px] font-semibold text-[var(--color-intelligence)] border-b-2 border-[var(--color-intelligence)] pb-2 -mb-[9px]">
-                All <span className="ml-1 text-[11px] bg-[var(--color-intelligence)]/10 px-1.5 py-0.5 rounded-full text-[var(--color-intelligence)]">7</span>
+              <button className="text-[13px] font-semibold text-[var(--color-intelligence-text)] border-b-2 border-[var(--color-intelligence)] pb-2 -mb-[9px]">
+                All <span className="ml-1 text-[11px] bg-[var(--color-intelligence-muted)] px-1.5 py-0.5 rounded-full text-[var(--color-intelligence-text)]">7</span>
               </button>
               <button className="text-[13px] font-medium text-text-muted hover:text-text-primary pb-2">
                 Critical <span className="ml-1 text-[11px] bg-surface-hover px-1.5 py-0.5 rounded-full">3</span>
@@ -183,7 +230,7 @@ export default function CommandCenterPage() {
             </div>
 
             <div className="mt-4 pt-4 border-t border-border">
-              <Link href="/command-center" className="text-[13px] font-medium text-[var(--color-intelligence)] hover:underline flex items-center gap-1">
+              <Link href="/command-center" className="text-[13px] font-medium text-[var(--color-intelligence-text)] hover:text-[var(--color-intelligence-text-dark)] hover:underline flex items-center gap-1">
                 View all decisions <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -204,7 +251,7 @@ export default function CommandCenterPage() {
                 <PORow id="PO-2025-141" supplier="Deccan Traders" value="₹15,450" date="24 May" status="Confirmed" />
                 <PORow id="PO-2025-140" supplier="Warangal Agri Co-op" value="₹8,750" date="22 May" status="Partially Received" />
               </div>
-              <Link href="/purchase-orders" className="text-[13px] font-medium text-[var(--color-intelligence)] hover:underline mt-4 pt-4 border-t border-border inline-block">
+              <Link href="/purchase-orders" className="text-[13px] font-medium text-[var(--color-intelligence-text)] hover:text-[var(--color-intelligence-text-dark)] hover:underline mt-4 pt-4 border-t border-border inline-block">
                 View all purchase orders →
               </Link>
             </div>
@@ -213,7 +260,7 @@ export default function CommandCenterPage() {
               <h2 className="text-[16px] font-bold text-text-primary mb-4">Transfers</h2>
               <div className="flex gap-2 flex-wrap mb-4">
                 <span className="text-[11px] font-medium px-2 py-1 bg-surface-hover rounded-full">Draft 2</span>
-                <span className="text-[11px] font-medium px-2 py-1 bg-[var(--color-intelligence)]/10 text-[var(--color-intelligence)] rounded-full">In Transit 3</span>
+                <span className="text-[11px] font-medium px-2 py-1 bg-[var(--color-intelligence-muted)] text-[var(--color-intelligence-text)] rounded-full">In Transit 3</span>
                 <span className="text-[11px] font-medium px-2 py-1 bg-success/10 text-success rounded-full">Received 5</span>
               </div>
               <div className="flex flex-col gap-3 flex-1">
@@ -221,7 +268,7 @@ export default function CommandCenterPage() {
                 <TransferRow id="TR-2025-034" route="Siddipet Main → Hyd Central" qty="12 kg" status="Received" />
                 <TransferRow id="TR-2025-033" route="Warangal Hub → Siddipet Main" qty="20 kg" status="Draft" />
               </div>
-              <Link href="/transfers" className="text-[13px] font-medium text-[var(--color-intelligence)] hover:underline mt-4 pt-4 border-t border-border inline-block">
+              <Link href="/transfers" className="text-[13px] font-medium text-[var(--color-intelligence-text)] hover:text-[var(--color-intelligence-text-dark)] hover:underline mt-4 pt-4 border-t border-border inline-block">
                 View all transfers →
               </Link>
             </div>
@@ -275,7 +322,7 @@ export default function CommandCenterPage() {
             <h2 className="text-[14px] font-bold text-text-primary mb-4">Recent Activities</h2>
             <div className="flex flex-col gap-4 relative">
               <div className="absolute left-2.5 top-2 bottom-2 w-px bg-border z-0"></div>
-              <ActivityRow icon={<PackageX className="w-3 h-3 text-white" />} bg="bg-[var(--color-intelligence)]" title="Stock received" text="Chicken Breast • 40 kg" time="2 hrs ago" />
+              <ActivityRow icon={<PackageX className="w-3 h-3 text-white" />} bg="bg-success" title="Stock received" text="Chicken Breast • 40 kg" time="2 hrs ago" />
               <ActivityRow icon={<Truck className="w-3 h-3 text-white" />} bg="bg-success" title="Transfer completed" text="18 kg to Hyderabad Central" time="4 hrs ago" />
               <ActivityRow icon={<Check className="w-3 h-3 text-white" />} bg="bg-warning" title="PO created" text="PO-2025-142 • FreshRoute Foods" time="5 hrs ago" />
             </div>
@@ -300,43 +347,51 @@ function DecisionRow({ decision, inventoryItem, onReview }: { decision: Recommen
   const isCritical = decision.urgency === 'critical';
   const typeLabel = decision.type === 'hybrid' ? 'Hybrid Replenishment' : decision.type === 'procure' ? 'Purchase' : decision.type === 'transfer' ? 'Transfer' : 'Stock Adjustment';
   
+  let subtext = "";
+  if (decision.type === 'hybrid') subtext = "Transfer + Purchase";
+  else if (decision.type === 'procure') subtext = `From ${decision.supplierName}`;
+  else if (decision.type === 'transfer') subtext = `From ${decision.sourceBranchName}`;
+
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border border-border rounded-lg bg-background hover:bg-surface-hover transition-colors gap-3">
-      <div className="flex items-start sm:items-center gap-3">
-        <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mt-1 sm:mt-0 ${isCritical ? 'bg-critical/10 text-critical' : 'bg-warning/10 text-warning'}`}>
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between p-3 border border-border rounded-lg bg-background hover:bg-surface-hover transition-colors gap-4">
+      <div className="flex items-start lg:items-center gap-3 flex-1 min-w-0">
+        <div className={`shrink-0 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mt-1 lg:mt-0 ${isCritical ? 'bg-critical/10 text-critical' : decision.urgency === 'high' ? 'bg-warning/10 text-warning' : 'bg-info/10 text-info'}`}>
           {decision.urgency}
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[14px] font-semibold text-text-primary leading-tight">{decision.itemName}</span>
-            <span className="text-[11px] text-text-secondary px-1.5 py-0.5 bg-surface-hover border border-border rounded">{decision.branchName}</span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[14px] font-semibold text-text-primary leading-tight truncate">{decision.itemName}</span>
+            <span className="text-[11px] text-text-secondary px-1.5 py-0.5 bg-surface-hover border border-border rounded whitespace-nowrap">{decision.branchName}</span>
           </div>
-          <div className="text-[12px] text-critical flex items-center gap-1 mt-1">
-            <AlertTriangle className="w-3 h-3" />
-            May breach safe stock within {decision.timeToBreach || "46 hours"}
+          <div className="text-[12px] text-critical flex items-start lg:items-center gap-1 mt-1">
+            <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5 lg:mt-0" />
+            <span className="line-clamp-2 lg:line-clamp-1">{decision.reasoning}</span>
           </div>
         </div>
       </div>
       
-      <div className="hidden lg:block text-right">
-        <p className="text-[11px] text-text-muted">Stock</p>
-        <p className="text-[12px] font-medium">{inventoryItem?.currentStock || 8} / {inventoryItem?.safeStockLevel || 15} {decision.unit}</p>
-      </div>
+      <div className="flex items-center justify-between lg:justify-end gap-6 w-full lg:w-auto mt-3 lg:mt-0 pt-3 lg:pt-0 border-t border-border lg:border-t-0">
+        <div className="text-left lg:text-right shrink-0">
+          <p className="text-[11px] text-text-muted">Stock</p>
+          <p className="text-[12px] font-medium">{inventoryItem?.currentStock || 8} / {inventoryItem?.safeStock || 15} {decision.unit}</p>
+        </div>
 
-      <div className="hidden lg:block">
-        <p className="text-[11px] text-text-muted">Recommended</p>
-        <p className="text-[12px] font-medium">{typeLabel}</p>
-      </div>
+        <div className="shrink-0 max-w-[120px]">
+          <p className="text-[11px] text-text-muted">Recommended</p>
+          <p className="text-[12px] font-medium truncate">{typeLabel}</p>
+          <p className="text-[11px] text-text-muted truncate" title={subtext}>{subtext}</p>
+        </div>
 
-      <div className="text-right hidden sm:block">
-        <p className="text-[12px] font-bold text-critical">₹{(decision.revenueAtRisk || 33600).toLocaleString()}</p>
-        <p className="text-[10px] text-text-muted">at risk</p>
+        <div className="text-right shrink-0">
+          <p className="text-[12px] font-bold text-critical">₹{(decision.revenueAtRisk || 33600).toLocaleString()}</p>
+          <p className="text-[10px] text-text-muted">at risk</p>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 mt-2 sm:mt-0">
         <button 
           onClick={onReview}
-          className="px-4 py-1.5 bg-[var(--color-intelligence)] text-white rounded-md text-[12px] font-medium hover:bg-black transition-colors"
+          className="px-4 py-1.5 bg-[var(--color-intelligence)] text-white rounded-md text-[12px] font-medium hover:bg-[var(--color-intelligence)]/90 transition-colors"
         >
           Review
         </button>

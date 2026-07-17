@@ -7,16 +7,12 @@ import { useState, useEffect } from "react";
 import { CheckCircle2 } from "lucide-react";
 
 export default function SettingsPage() {
-  const { settings, updateSettings } = useStore();
+  const { settings, updateSettings, autoApprovalRules, updateAutoApprovalRule } = useStore();
 
   const [orgName, setOrgName] = useState(settings.organizationName);
   const [currency, setCurrency] = useState(settings.currency);
   const [leadTime, setLeadTime] = useState(settings.leadTimeBuffer);
   const [activeTab, setActiveTab] = useState("organization");
-  
-  // Auto-approval toggles
-  const [autoApproveTransfers, setAutoApproveTransfers] = useState(true);
-  const [autoApprovePurchases, setAutoApprovePurchases] = useState(false);
 
   const [showToast, setShowToast] = useState(false);
 
@@ -144,37 +140,29 @@ export default function SettingsPage() {
               </p>
 
               <div className="flex flex-col gap-6 max-w-2xl">
-                <div className="flex items-start justify-between p-4 bg-surface border border-border rounded-xl">
-                  <div className="flex flex-col gap-1 pr-6">
-                    <span className="text-[14px] font-bold text-text-primary">Auto-Approve Inter-Branch Transfers</span>
-                    <span className="text-[13px] text-text-secondary leading-relaxed">
-                      Automatically create transfer orders between branches when distance is under 100km and transport cost is cheaper than local purchase.
-                    </span>
+                {autoApprovalRules.map(rule => (
+                  <div key={rule.id} className="flex items-start justify-between p-4 bg-surface border border-border rounded-xl">
+                    <div className="flex flex-col gap-1 pr-6">
+                      <span className="text-[14px] font-bold text-text-primary">{rule.name}</span>
+                      <span className="text-[13px] text-text-secondary leading-relaxed">
+                        {rule.description}
+                      </span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                      <input 
+                        type="checkbox" 
+                        checked={rule.isEnabled} 
+                        onChange={(e) => {
+                          updateAutoApprovalRule(rule.id, e.target.checked);
+                          setShowToast(true);
+                          setTimeout(() => setShowToast(false), 3000);
+                        }} 
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
+                    </label>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-                    <input type="checkbox" checked={autoApproveTransfers} onChange={(e) => setAutoApproveTransfers(e.target.checked)} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-start justify-between p-4 bg-surface border border-border rounded-xl">
-                  <div className="flex flex-col gap-1 pr-6">
-                    <span className="text-[14px] font-bold text-text-primary">Auto-Approve Purchase Orders (under ₹10,000)</span>
-                    <span className="text-[13px] text-text-secondary leading-relaxed">
-                      Automatically send POs to preferred suppliers if the total value is below the threshold and supplier reliability is healthy.
-                    </span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-                    <input type="checkbox" checked={autoApprovePurchases} onChange={(e) => setAutoApprovePurchases(e.target.checked)} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
-                  </label>
-                </div>
-                
-                <div className="pt-4 mt-2 border-t border-border">
-                  <button onClick={handleSave} className="px-4 py-2 bg-[var(--color-sidebar-bg)] text-white rounded-md text-[13px] font-medium hover:bg-black transition-colors shadow-sm">
-                    Save Rules
-                  </button>
-                </div>
+                ))}
               </div>
             </>
           )}

@@ -101,6 +101,7 @@ export interface StoreState {
 
   // Actions
   updateSettings: (settings: Partial<AppSettings>) => void;
+  updateAutoApprovalRule: (id: string, isEnabled: boolean) => void;
   markFeedEventRead: (id: string) => void;
   markAllFeedEventsRead: () => void;
 
@@ -135,6 +136,7 @@ export interface StoreState {
 
   runScenario: (itemId: string, branchId: string, params: ScenarioParams) => void;
   resetToDefault: () => void;
+  hydrateFromServer: (data: { branches?: Branch[], inventory?: InventoryItem[], suppliers?: Supplier[] }) => void;
 }
 
 const defaultSettings: AppSettings = {
@@ -177,6 +179,13 @@ export const useStore = create<StoreState>()(
       updateSettings: (newSettings) =>
         set((state) => ({
           settings: { ...state.settings, ...newSettings },
+        })),
+
+      updateAutoApprovalRule: (id, isEnabled) =>
+        set((state) => ({
+          autoApprovalRules: state.autoApprovalRules.map((rule) =>
+            rule.id === id ? { ...rule, isEnabled } : rule
+          ),
         })),
 
       markFeedEventRead: (id) =>
@@ -595,6 +604,13 @@ export const useStore = create<StoreState>()(
           feedEvents: mockFeedEvents,
           settings: defaultSettings,
         }),
+      hydrateFromServer: (data) =>
+        set((state) => ({
+          ...state,
+          ...(data.branches && { branches: data.branches }),
+          ...(data.inventory && { inventory: data.inventory }),
+          ...(data.suppliers && { suppliers: data.suppliers }),
+        })),
     }),
     {
       name: "procureiq-storage",

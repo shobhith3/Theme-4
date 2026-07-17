@@ -1,15 +1,22 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useTransition, useEffect } from "react";
 import { X, ArrowLeft, PackagePlus, FilePlus2, FileSpreadsheet, Receipt, ArrowRightLeft, ClipboardCheck, Trash2, CheckCircle2, AlertTriangle, Upload } from "lucide-react";
-import { useStore } from "@/store/useStore";
-import { InventoryItem } from "@/types";
+import { receiveStock, addOpeningStock, recordLoss, adjustStock, transferStock, getRealData } from "@/app/actions/stock-actions";
+import { Loader2 } from "lucide-react";
 
 type IntakeMode = "menu" | "receive" | "add" | "import" | "invoice" | "transfer" | "audit" | "loss";
 
 export function StockIntakeCenter({ isOpen, onClose, inline = false }: { isOpen: boolean; onClose: () => void; inline?: boolean }) {
   const [mode, setMode] = useState<IntakeMode>("menu");
   const [successMsg, setSuccessMsg] = useState("");
+  const [realData, setRealData] = useState<any>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      getRealData().then(setRealData).catch(console.error);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -19,6 +26,7 @@ export function StockIntakeCenter({ isOpen, onClose, inline = false }: { isOpen:
       setSuccessMsg("");
       setMode("menu");
       onClose();
+      getRealData().then(setRealData).catch(console.error); // refresh data
     }, 2000);
   };
 
@@ -54,18 +62,18 @@ export function StockIntakeCenter({ isOpen, onClose, inline = false }: { isOpen:
           {successMsg ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 animate-in fade-in">
               <CheckCircle2 className="w-16 h-16 text-success mb-4" />
-              <h3 className="text-xl font-bold text-text-primary">{successMsg}</h3>
+              <h3 className="text-[xl] font-bold text-text-primary">{successMsg}</h3>
             </div>
           ) : (
             <>
               {mode === "menu" && <MenuGrid onSelect={setMode} />}
-              {mode === "receive" && <ReceiveForm onSuccess={() => handleSuccess("Stock added successfully.")} />}
-              {mode === "add" && <AddForm onSuccess={() => handleSuccess("New item added.")} />}
+              {mode === "receive" && <ReceiveForm onSuccess={() => handleSuccess("Stock added successfully.")} realData={realData} />}
+              {mode === "add" && <AddForm onSuccess={() => handleSuccess("New item added.")} realData={realData} />}
               {mode === "import" && <ImportForm onSuccess={() => handleSuccess("Items imported successfully.")} />}
-              {mode === "invoice" && <InvoiceForm onSuccess={() => handleSuccess("Invoice processed and stock added.")} />}
-              {mode === "transfer" && <TransferForm onSuccess={() => handleSuccess("Stock transferred successfully.")} />}
-              {mode === "audit" && <AuditForm onSuccess={() => handleSuccess("Stock count corrected.")} />}
-              {mode === "loss" && <LossForm onSuccess={() => handleSuccess("Loss recorded successfully.")} />}
+              {mode === "invoice" && <InvoiceForm onSuccess={() => handleSuccess("Invoice processed and stock added.")} realData={realData} />}
+              {mode === "transfer" && <TransferForm onSuccess={() => handleSuccess("Stock transferred successfully.")} realData={realData} />}
+              {mode === "audit" && <AuditForm onSuccess={() => handleSuccess("Stock count corrected.")} realData={realData} />}
+              {mode === "loss" && <LossForm onSuccess={() => handleSuccess("Loss recorded successfully.")} realData={realData} />}
             </>
           )}
         </div>
@@ -92,7 +100,7 @@ function MenuGrid({ onSelect }: { onSelect: (m: IntakeMode) => void }) {
         {options.map(opt => (
           <button
             key={opt.id}
-            onClick={() => onSelect(opt.id)}
+            onClick={() => onSelect(opt.id as IntakeMode)}
             className="flex items-start gap-4 p-4 text-left border border-border/80 rounded-xl hover:border-[var(--color-accent)] hover:shadow-sm transition-all group bg-white"
           >
             <div className={`p-3 rounded-lg ${opt.bg}`}>
@@ -113,12 +121,13 @@ function MenuGrid({ onSelect }: { onSelect: (m: IntakeMode) => void }) {
 // SUB-FLOW FORMS
 // ----------------------------------------------------------------------
 
-function ReceiveForm({ onSuccess }: { onSuccess: () => void }) {
-  const { inventory, branches, suppliers, recordStockTransaction } = useStore();
+function ReceiveForm({ onSuccess, realData }: { onSuccess: () => void, realData: { branches: any[], suppliers: any[], inventory: any[] } }) {
+  const { inventory, branches, suppliers } = realData || { branches: [], suppliers: [], inventory: [] };
   const [itemId, setItemId] = useState("");
   const [branchId, setBranchId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [qty, setQty] = useState("");
+  const [isPending, startTransition] = useTransition();
 
   const selectedItem = inventory.find(i => i.id === itemId);
   const isHighQty = selectedItem && Number(qty) > selectedItem.maxStock;
@@ -127,18 +136,20 @@ function ReceiveForm({ onSuccess }: { onSuccess: () => void }) {
     e.preventDefault();
     if (!selectedItem || !branchId || !supplierId) return;
 
-    recordStockTransaction({
-      type: "receive_stock",
-      itemId: selectedItem.id,
-      itemName: selectedItem.name,
-      branchId,
-      branchName: branches.find(b => b.id === branchId)?.name || "",
-      quantityChange: Number(qty),
-      unit: selectedItem.unit,
-      reference: "Manual Receive",
-      createdBy: "Current User"
+    startTransition(async () => {
+      try {
+        await receiveStock({
+          itemId: selectedItem.id,
+          branchId,
+          supplierId,
+          qty: Number(qty)
+        });
+        onSuccess();
+      } catch (err) {
+        console.error("Failed to receive stock:", err);
+        alert("Failed to receive stock. Please try again.");
+      }
     });
-    onSuccess();
   };
 
   return (
@@ -146,14 +157,14 @@ function ReceiveForm({ onSuccess }: { onSuccess: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-[12px] font-semibold text-text-primary">Item *</label>
-          <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={itemId} onChange={e => setItemId(e.target.value)}>
+          <select required disabled={isPending} className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={itemId} onChange={e => setItemId(e.target.value)}>
             <option value="">Select Item</option>
             {inventory.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
           </select>
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[12px] font-semibold text-text-primary">Branch *</label>
-          <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={branchId} onChange={e => setBranchId(e.target.value)}>
+          <select required disabled={isPending} className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={branchId} onChange={e => setBranchId(e.target.value)}>
             <option value="">Select Branch</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
@@ -163,7 +174,7 @@ function ReceiveForm({ onSuccess }: { onSuccess: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-[12px] font-semibold text-text-primary">Supplier *</label>
-          <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={supplierId} onChange={e => setSupplierId(e.target.value)}>
+          <select required disabled={isPending} className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={supplierId} onChange={e => setSupplierId(e.target.value)}>
             <option value="">Select Supplier</option>
             {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
@@ -171,7 +182,7 @@ function ReceiveForm({ onSuccess }: { onSuccess: () => void }) {
         <div className="flex flex-col gap-1.5">
           <label className="text-[12px] font-semibold text-text-primary">Quantity *</label>
           <div className="flex items-center gap-2">
-            <input required type="number" min="1" className="p-2.5 flex-1 bg-surface border border-border rounded-lg text-[13px]" value={qty} onChange={e => setQty(e.target.value)} />
+            <input required disabled={isPending} type="number" min="1" className="p-2.5 flex-1 bg-surface border border-border rounded-lg text-[13px]" value={qty} onChange={e => setQty(e.target.value)} />
             <span className="text-[13px] text-text-muted">{selectedItem?.unit || "-"}</span>
           </div>
         </div>
@@ -184,73 +195,61 @@ function ReceiveForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
       )}
 
-      <button type="submit" className="mt-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white rounded-xl font-bold text-[14px] transition-colors">
+      <button disabled={isPending} type="submit" className="mt-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-70 text-white rounded-xl font-bold text-[14px] transition-colors flex justify-center items-center gap-2">
+        {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
         Save Received Stock
       </button>
     </form>
   );
 }
 
-function AddForm({ onSuccess }: { onSuccess: () => void }) {
-  const { branches, addInventoryItem, recordStockTransaction } = useStore();
+function AddForm({ onSuccess, realData }: { onSuccess: () => void, realData: { branches: any[], suppliers: any[], inventory: any[] } }) {
+  const { branches } = realData || { branches: [], suppliers: [], inventory: [] };
   const [name, setName] = useState("");
   const [branchId, setBranchId] = useState("");
   const [qty, setQty] = useState("");
+  const [isPending, startTransition] = useTransition();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const id = `inv-new-${Date.now()}`;
-    addInventoryItem({
-      id,
-      name,
-      category: "other",
-      branchId,
-      currentStock: 0, // start 0, tx adds it
-      minStock: 10,
-      maxStock: 100,
-      unit: "units",
-      avgDailyUsage: 1,
-      unitCost: 100,
-      reorderPoint: 20,
-      lastRestocked: new Date().toISOString(),
-      expiryDate: null,
-      shelfLifeDays: null
+    if (!name || !branchId) return;
+    
+    startTransition(async () => {
+      try {
+        await addOpeningStock({
+          name,
+          branchId,
+          qty: Number(qty)
+        });
+        onSuccess();
+      } catch (err) {
+        console.error("Failed to add new item:", err);
+        alert("Failed to add new item. Please try again.");
+      }
     });
-
-    recordStockTransaction({
-      type: "opening_stock",
-      itemId: id,
-      itemName: name,
-      branchId,
-      branchName: branches.find(b => b.id === branchId)?.name || "",
-      quantityChange: Number(qty),
-      unit: "pcs",
-      reason: "Initial Stock",
-      createdBy: "Current User"
-    });
-    onSuccess();
   };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <label className="text-[12px] font-semibold text-text-primary">Item Name *</label>
-        <input required type="text" placeholder="e.g. Curd" className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={name} onChange={e => setName(e.target.value)} />
+        <input required disabled={isPending} type="text" placeholder="e.g. Curd" className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={name} onChange={e => setName(e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-[12px] font-semibold text-text-primary">Branch *</label>
-          <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={branchId} onChange={e => setBranchId(e.target.value)}>
+          <select required disabled={isPending} className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={branchId} onChange={e => setBranchId(e.target.value)}>
             <option value="">Select Branch</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[12px] font-semibold text-text-primary">Opening Stock *</label>
-          <input required type="number" min="0" className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={qty} onChange={e => setQty(e.target.value)} />
+          <input required disabled={isPending} type="number" min="0" className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={qty} onChange={e => setQty(e.target.value)} />
         </div>
       </div>
-      <button type="submit" className="mt-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white rounded-xl font-bold text-[14px] transition-colors">
+      <button disabled={isPending} type="submit" className="mt-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-70 text-white rounded-xl font-bold text-[14px] transition-colors flex justify-center items-center gap-2">
+        {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
         Add Item
       </button>
     </form>
@@ -287,38 +286,45 @@ function ImportForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-function InvoiceForm({ onSuccess }: { onSuccess: () => void }) {
-  const { recordStockTransaction, inventory } = useStore();
+function InvoiceForm({ onSuccess, realData }: { onSuccess: () => void, realData: { branches: any[], suppliers: any[], inventory: any[] } }) {
+  const { inventory } = realData || { branches: [], suppliers: [], inventory: [] };
   const [extracted, setExtracted] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const handleExtract = () => {
     setExtracted(true);
   };
 
   const handleConfirm = () => {
-    // Mock extracting standard items
-    const mockItems = [
-      { name: "Chicken Breast", qty: 40, unit: "kg" },
-      { name: "Tomatoes", qty: 25, unit: "kg" },
-      { name: "Paneer", qty: 10, unit: "kg" },
-    ];
-    mockItems.forEach(item => {
-      const inv = inventory.find(i => i.name === item.name);
-      if (inv) {
-        recordStockTransaction({
-          type: "receive_stock",
-          itemId: inv.id,
-          itemName: inv.name,
-          branchId: inv.branchId,
-          branchName: "Default Branch",
-          quantityChange: item.qty,
-          unit: item.unit,
-          reference: "Invoice Extraction",
-          createdBy: "OCR System"
-        });
+    startTransition(async () => {
+      try {
+        // Mock extracting standard items
+        const mockItems = [
+          { name: "Chicken Breast", qty: 40, unit: "kg" },
+          { name: "Tomatoes", qty: 25, unit: "kg" },
+          { name: "Paneer", qty: 10, unit: "kg" },
+        ];
+        
+        // Let's do them sequentially to avoid overloading the DB connections
+        for (const item of mockItems) {
+          const inv = inventory.find(i => i.name === item.name);
+          if (inv) {
+            await receiveStock({
+              itemId: inv.id,
+              branchId: inv.branchId,
+              supplierId: "dummy_supplier", // In real app, we'd lookup or have it
+              qty: item.qty,
+              reference: "Invoice Extraction"
+            });
+          }
+        }
+        
+        onSuccess();
+      } catch (err) {
+        console.error("Failed invoice processing:", err);
+        alert("Failed to process invoice.");
       }
     });
-    onSuccess();
   };
 
   return (
@@ -353,7 +359,8 @@ function InvoiceForm({ onSuccess }: { onSuccess: () => void }) {
               </div>
             </div>
           </div>
-          <button onClick={handleConfirm} className="mt-6 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white rounded-xl font-bold text-[14px] transition-colors">
+          <button disabled={isPending} onClick={handleConfirm} className="mt-6 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-70 text-white rounded-xl font-bold text-[14px] transition-colors flex justify-center items-center gap-2">
+            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
             Confirm & Add Stock
           </button>
         </div>
@@ -362,12 +369,13 @@ function InvoiceForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-function TransferForm({ onSuccess }: { onSuccess: () => void }) {
-  const { inventory, branches, recordStockTransaction } = useStore();
+function TransferForm({ onSuccess, realData }: { onSuccess: () => void, realData: { branches: any[], suppliers: any[], inventory: any[] } }) {
+  const { inventory, branches } = realData || { branches: [], suppliers: [], inventory: [] };
   const [itemId, setItemId] = useState("");
   const [sourceId, setSourceId] = useState("");
   const [destId, setDestId] = useState("");
   const [qty, setQty] = useState("");
+  const [isPending, startTransition] = useTransition();
 
   const selectedItem = inventory.find(i => i.id === itemId && i.branchId === sourceId);
   const isSafetyRisk = selectedItem && (selectedItem.currentStock - Number(qty) < selectedItem.minStock);
@@ -376,41 +384,27 @@ function TransferForm({ onSuccess }: { onSuccess: () => void }) {
     e.preventDefault();
     if (!selectedItem || !destId || sourceId === destId) return;
 
-    const sourceBranch = branches.find(b => b.id === sourceId)?.name || "";
-    const destBranch = branches.find(b => b.id === destId)?.name || "";
-
-    recordStockTransaction({
-      type: "transfer_out",
-      itemId: selectedItem.id,
-      itemName: selectedItem.name,
-      branchId: sourceId,
-      branchName: sourceBranch,
-      quantityChange: -Number(qty),
-      unit: selectedItem.unit,
-      reference: `To ${destBranch}`,
-      createdBy: "Current User"
+    startTransition(async () => {
+      try {
+        await transferStock({
+          itemId: selectedItem.id,
+          sourceId,
+          destId,
+          qty: Number(qty)
+        });
+        onSuccess();
+      } catch (err) {
+        console.error("Failed to transfer stock:", err);
+        alert("Failed to transfer stock. Please try again.");
+      }
     });
-
-    recordStockTransaction({
-      type: "transfer_in",
-      itemId: selectedItem.id,
-      itemName: selectedItem.name,
-      branchId: destId,
-      branchName: destBranch,
-      quantityChange: Number(qty),
-      unit: selectedItem.unit,
-      reference: `From ${sourceBranch}`,
-      createdBy: "Current User"
-    });
-
-    onSuccess();
   };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <label className="text-[12px] font-semibold text-text-primary">Item to Transfer *</label>
-        <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={itemId} onChange={e => setItemId(e.target.value)}>
+        <select required disabled={isPending} className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={itemId} onChange={e => setItemId(e.target.value)}>
           <option value="">Select Item</option>
           {Array.from(new Set(inventory.map(i => i.name))).map(name => {
             const id = inventory.find(i => i.name === name)?.id;
@@ -422,14 +416,14 @@ function TransferForm({ onSuccess }: { onSuccess: () => void }) {
       <div className="grid grid-cols-2 gap-4 relative">
         <div className="flex flex-col gap-1.5">
           <label className="text-[12px] font-semibold text-text-primary">Source Branch *</label>
-          <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={sourceId} onChange={e => setSourceId(e.target.value)}>
+          <select required disabled={isPending} className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={sourceId} onChange={e => setSourceId(e.target.value)}>
             <option value="">Select Source</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[12px] font-semibold text-text-primary">Destination Branch *</label>
-          <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={destId} onChange={e => setDestId(e.target.value)}>
+          <select required disabled={isPending} className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={destId} onChange={e => setDestId(e.target.value)}>
             <option value="">Select Destination</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
@@ -441,7 +435,7 @@ function TransferForm({ onSuccess }: { onSuccess: () => void }) {
 
       <div className="flex flex-col gap-1.5">
         <label className="text-[12px] font-semibold text-text-primary">Quantity *</label>
-        <input required type="number" min="1" className="p-2.5 bg-surface border border-border rounded-lg text-[13px] w-1/2" value={qty} onChange={e => setQty(e.target.value)} />
+        <input required disabled={isPending} type="number" min="1" className="p-2.5 bg-surface border border-border rounded-lg text-[13px] w-1/2" value={qty} onChange={e => setQty(e.target.value)} />
       </div>
 
       {isSafetyRisk && (
@@ -451,17 +445,19 @@ function TransferForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
       )}
 
-      <button type="submit" className="mt-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white rounded-xl font-bold text-[14px] transition-colors">
+      <button disabled={isPending} type="submit" className="mt-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-70 text-white rounded-xl font-bold text-[14px] transition-colors flex justify-center items-center gap-2">
+        {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
         Execute Transfer
       </button>
     </form>
   );
 }
 
-function AuditForm({ onSuccess }: { onSuccess: () => void }) {
-  const { inventory, branches, recordStockTransaction } = useStore();
+function AuditForm({ onSuccess, realData }: { onSuccess: () => void, realData: { branches: any[], suppliers: any[], inventory: any[] } }) {
+  const { inventory, branches } = realData || { branches: [], suppliers: [], inventory: [] };
   const [itemId, setItemId] = useState("");
   const [qty, setQty] = useState("");
+  const [isPending, startTransition] = useTransition();
 
   const selectedItem = inventory.find(i => i.id === itemId);
   const diff = selectedItem && qty ? Number(qty) - selectedItem.currentStock : 0;
@@ -470,25 +466,26 @@ function AuditForm({ onSuccess }: { onSuccess: () => void }) {
     e.preventDefault();
     if (!selectedItem) return;
 
-    recordStockTransaction({
-      type: "adjustment",
-      itemId: selectedItem.id,
-      itemName: selectedItem.name,
-      branchId: selectedItem.branchId,
-      branchName: branches.find(b => b.id === selectedItem.branchId)?.name || "",
-      quantityChange: diff,
-      unit: selectedItem.unit,
-      reason: "Physical audit correction",
-      createdBy: "Current User"
+    startTransition(async () => {
+      try {
+        await adjustStock({
+          itemId: selectedItem.id,
+          branchId: selectedItem.branchId,
+          newQty: Number(qty)
+        });
+        onSuccess();
+      } catch (err) {
+        console.error("Failed to adjust stock:", err);
+        alert("Failed to adjust stock. Please try again.");
+      }
     });
-    onSuccess();
   };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <label className="text-[12px] font-semibold text-text-primary">Item to Correct *</label>
-        <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={itemId} onChange={e => setItemId(e.target.value)}>
+        <select required disabled={isPending} className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={itemId} onChange={e => setItemId(e.target.value)}>
           <option value="">Select Item</option>
           {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({branches.find(b => b.id === i.branchId)?.name})</option>)}
         </select>
@@ -504,7 +501,7 @@ function AuditForm({ onSuccess }: { onSuccess: () => void }) {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[12px] font-semibold text-text-primary">Actual Count *</label>
-            <input required type="number" min="0" className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={qty} onChange={e => setQty(e.target.value)} />
+            <input required disabled={isPending} type="number" min="0" className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={qty} onChange={e => setQty(e.target.value)} />
           </div>
         </div>
       )}
@@ -515,18 +512,20 @@ function AuditForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
       )}
 
-      <button disabled={!qty || diff === 0} type="submit" className="mt-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 text-white rounded-xl font-bold text-[14px] transition-colors">
+      <button disabled={!qty || diff === 0 || isPending} type="submit" className="mt-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 text-white rounded-xl font-bold text-[14px] transition-colors flex justify-center items-center gap-2">
+        {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
         Correct Stock
       </button>
     </form>
   );
 }
 
-function LossForm({ onSuccess }: { onSuccess: () => void }) {
-  const { inventory, branches, recordStockTransaction } = useStore();
+function LossForm({ onSuccess, realData }: { onSuccess: () => void, realData: { branches: any[], suppliers: any[], inventory: any[] } }) {
+  const { inventory, branches } = realData || { branches: [], suppliers: [], inventory: [] };
   const [itemId, setItemId] = useState("");
   const [qty, setQty] = useState("");
   const [reason, setReason] = useState("wastage");
+  const [isPending, startTransition] = useTransition();
 
   const selectedItem = inventory.find(i => i.id === itemId);
 
@@ -534,25 +533,27 @@ function LossForm({ onSuccess }: { onSuccess: () => void }) {
     e.preventDefault();
     if (!selectedItem) return;
 
-    recordStockTransaction({
-      type: reason as any,
-      itemId: selectedItem.id,
-      itemName: selectedItem.name,
-      branchId: selectedItem.branchId,
-      branchName: branches.find(b => b.id === selectedItem.branchId)?.name || "",
-      quantityChange: -Number(qty),
-      unit: selectedItem.unit,
-      reason: "Recorded manually",
-      createdBy: "Current User"
+    startTransition(async () => {
+      try {
+        await recordLoss({
+          itemId: selectedItem.id,
+          branchId: selectedItem.branchId,
+          qty: Number(qty),
+          type: reason
+        });
+        onSuccess();
+      } catch (err) {
+        console.error("Failed to record loss:", err);
+        alert("Failed to record loss. Please try again.");
+      }
     });
-    onSuccess();
   };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <label className="text-[12px] font-semibold text-text-primary">Item *</label>
-        <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={itemId} onChange={e => setItemId(e.target.value)}>
+        <select required disabled={isPending} className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={itemId} onChange={e => setItemId(e.target.value)}>
           <option value="">Select Item</option>
           {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({branches.find(b => b.id === i.branchId)?.name})</option>)}
         </select>
@@ -561,11 +562,11 @@ function LossForm({ onSuccess }: { onSuccess: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-[12px] font-semibold text-text-primary">Quantity Lost *</label>
-          <input required type="number" min="1" className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={qty} onChange={e => setQty(e.target.value)} />
+          <input required disabled={isPending} type="number" min="1" className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={qty} onChange={e => setQty(e.target.value)} />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[12px] font-semibold text-text-primary">Type of Loss *</label>
-          <select required className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={reason} onChange={e => setReason(e.target.value)}>
+          <select required disabled={isPending} className="p-2.5 bg-surface border border-border rounded-lg text-[13px]" value={reason} onChange={e => setReason(e.target.value)}>
             <option value="wastage">Wastage</option>
             <option value="damage">Damage</option>
             <option value="expiry">Expiry</option>
@@ -573,7 +574,8 @@ function LossForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
       </div>
 
-      <button type="submit" className="mt-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-[14px] transition-colors">
+      <button disabled={isPending} type="submit" className="mt-4 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-70 text-white rounded-xl font-bold text-[14px] transition-colors flex justify-center items-center gap-2">
+        {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
         Record Loss
       </button>
     </form>

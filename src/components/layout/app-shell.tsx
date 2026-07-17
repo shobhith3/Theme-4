@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { MobileNav } from "./mobile-nav";
@@ -14,6 +14,28 @@ export function AppShell({ children }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const isSidebarCollapsed = useStore((s) => s.settings.sidebarCollapsed);
   const updateSettings = useStore((s) => s.updateSettings);
+  const hydrateFromServer = useStore((s) => s.hydrateFromServer);
+
+  useEffect(() => {
+    async function init() {
+      try {
+        // Sync clerk user to DB
+        await fetch('/api/auth/sync', { method: 'POST' });
+        
+        // Hydrate store from database
+        const { getRealData } = await import('@/app/actions/stock-actions');
+        const data = await getRealData();
+        hydrateFromServer({
+          branches: data.branches as any,
+          inventory: data.inventory as any,
+          suppliers: data.suppliers as any
+        });
+      } catch (err) {
+        console.error("Failed to sync/hydrate:", err);
+      }
+    }
+    init();
+  }, [hydrateFromServer]);
 
   return (
     <>

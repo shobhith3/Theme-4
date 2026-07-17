@@ -2,7 +2,8 @@
 
 import { PageContainer } from "@/components/common/page-container";
 import { PageHeader } from "@/components/common/page-header";
-import { TrendingDown, PackageX, Truck, RefreshCcw, TrendingUp, Download, Calendar, ArrowRight } from "lucide-react";
+import { TrendingDown, PackageX, Truck, RefreshCcw, TrendingUp, Download, Calendar, ArrowRight, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
 
 export default function ReportsPage() {
   const reports = [
@@ -14,6 +15,14 @@ export default function ReportsPage() {
     { title: "Forecast Accuracy", desc: "Comparison of AI predicted demand vs actual consumption.", icon: <TrendingUp className="w-5 h-5 text-warning" /> }
   ];
 
+  const [dateRange, setDateRange] = useState("Last 30 Days");
+  const [showToast, setShowToast] = useState(false);
+
+  const handleExport = () => {
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
   return (
     <PageContainer>
       <div className="flex flex-col md:flex-row md:items-start justify-between mb-8">
@@ -21,12 +30,26 @@ export default function ReportsPage() {
           title="Reports & Analytics"
           description="View historical performance, risk mitigation, and operational metrics."
         />
-        <div className="flex items-center gap-3 mt-4 md:mt-0">
-          <button className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-md text-[13px] font-medium text-text-secondary hover:text-text-primary transition-colors shadow-sm">
-            <Calendar className="w-4 h-4" />
-            Filter Date Range
-          </button>
-          <button className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-md text-[13px] font-medium text-text-secondary hover:text-text-primary transition-colors shadow-sm">
+        <div className="flex items-center gap-3 mt-4 md:mt-0 relative">
+          {showToast && (
+            <div className="absolute top-12 right-0 bg-success text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-[13px] font-bold animate-in fade-in slide-in-from-top-2 whitespace-nowrap z-50">
+              <CheckCircle2 className="w-4 h-4" /> Export Started successfully
+            </div>
+          )}
+          <select 
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-md text-[13px] font-medium text-text-secondary hover:text-text-primary transition-colors shadow-sm cursor-pointer outline-none"
+          >
+            <option>Last 7 Days</option>
+            <option>Last 30 Days</option>
+            <option>Last 90 Days</option>
+            <option>Year to Date</option>
+          </select>
+          <button 
+            onClick={handleExport}
+            className="flex items-center gap-2 px-3 py-2 bg-[var(--color-accent)] border border-[var(--color-accent)] rounded-md text-[13px] font-medium text-white hover:bg-[var(--color-accent-hover)] transition-colors shadow-sm"
+          >
             <Download className="w-4 h-4" />
             Export CSV
           </button>

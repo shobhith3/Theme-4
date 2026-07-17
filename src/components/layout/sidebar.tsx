@@ -16,6 +16,8 @@ import {
   PanelLeftOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { AiAssistantDrawer } from "./ai-assistant-drawer";
 
 const navigation = [
   {
@@ -61,18 +63,19 @@ interface SidebarProps {
 
 export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const [isAiOpen, setIsAiOpen] = useState(false);
 
   return (
-    <aside className="h-full w-full flex flex-col bg-[var(--color-sidebar-bg)] transition-all duration-300">
+    <aside className="h-full w-full flex flex-col bg-[var(--color-sidebar-bg)] border-r border-border transition-all duration-300">
       {/* Brand Header */}
       <div className={cn(
-        "flex justify-between items-center h-[72px] px-4 pb-4 pt-3 shrink-0 border-b border-white/5 transition-all duration-300",
+        "flex justify-between items-center h-[72px] px-4 pb-4 pt-3 shrink-0 border-b border-border transition-all duration-300",
         isCollapsed ? "justify-center px-0" : ""
       )}>
         {!isCollapsed && (
           <div className="flex flex-col pl-2">
-            <span className="text-[15px] font-semibold text-white tracking-tight leading-tight flex items-center gap-2">
-              <BrainCircuit className="w-[18px] h-[18px] text-white" />
+            <span className="text-[15px] font-semibold text-text-primary tracking-tight leading-tight flex items-center gap-2">
+              <BrainCircuit className="w-[18px] h-[18px] text-[var(--color-intelligence)]" />
               ProcureIQ
             </span>
             <span className="text-[10px] text-[var(--color-sidebar-text-muted)] font-medium uppercase tracking-widest mt-1">
@@ -81,13 +84,13 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
           </div>
         )}
         {isCollapsed && (
-          <BrainCircuit className="w-[20px] h-[20px] text-white mx-auto" />
+          <BrainCircuit className="w-[20px] h-[20px] text-[var(--color-intelligence)] mx-auto" />
         )}
 
         {onToggle && (
           <button
             onClick={onToggle}
-            className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-[var(--color-sidebar-text-muted)] hover:text-white shrink-0"
+            className="p-1.5 rounded-md hover:bg-surface-hover transition-colors text-[var(--color-sidebar-text-muted)] hover:text-text-primary shrink-0"
             aria-label="Toggle Sidebar"
           >
             {isCollapsed ? (
@@ -120,15 +123,15 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
                         "relative flex items-center rounded-lg h-10 text-[14px] font-medium transition-colors group",
                         isCollapsed ? "justify-center px-0 w-full" : "gap-2.5 px-2 w-full",
                         isActive
-                          ? "bg-white/10 text-white"
-                          : "text-[var(--color-sidebar-text)] hover:text-white hover:bg-white/5"
+                          ? "bg-[var(--color-sidebar-active-bg)] text-[var(--color-sidebar-active-text)]"
+                          : "text-[var(--color-sidebar-text)] hover:text-text-primary hover:bg-surface-hover"
                       )}
                       title={isCollapsed ? item.label : undefined}
                     >
                       <item.icon className={cn(
                         "shrink-0 transition-colors",
                         isCollapsed ? "w-[18px] h-[18px]" : "w-[17px] h-[17px]",
-                        isActive ? "text-white" : "text-[var(--color-sidebar-text-muted)] group-hover:text-[var(--color-sidebar-text)]"
+                        isActive ? "text-[var(--color-sidebar-active-text)]" : "text-[var(--color-sidebar-text-muted)] group-hover:text-[var(--color-sidebar-text)]"
                       )} />
                       {!isCollapsed && (
                         <span className="truncate">{item.label}</span>
@@ -140,7 +143,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[16px] bg-[var(--color-intelligence)] rounded-r-md" />
                       )}
                       {(item as any).badge && !isCollapsed && (
-                        <span className="ml-auto flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[var(--color-intelligence)] px-1.5 text-[11px] font-bold text-white">
+                        <span className="ml-auto flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[var(--color-intelligence)] text-[11px] font-bold text-white">
                           {(item as any).badge}
                         </span>
                       )}
@@ -155,34 +158,39 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
 
       {/* Bottom Cards */}
       {!isCollapsed && (
-        <div className="shrink-0 border-t border-white/5 p-3 flex flex-col gap-3">
+        <div className="shrink-0 border-t border-border p-3 flex flex-col gap-3">
           {/* AI Procurement Assistant Card */}
-          <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-            <h4 className="text-[12px] font-bold text-white flex items-center gap-1.5 mb-1.5">
-              <Lightbulb className="w-3.5 h-3.5 text-amber-400" /> AI Assistant
+          <div className="bg-surface-hover border border-border rounded-lg p-3">
+            <h4 className="text-[12px] font-bold text-text-primary flex items-center gap-1.5 mb-1.5">
+              <Lightbulb className="w-3.5 h-3.5 text-warning" /> AI Assistant
             </h4>
             <p className="text-[11px] text-[var(--color-sidebar-text-muted)] mb-3 leading-relaxed">
               Ask anything about inventory, suppliers, or decisions.
             </p>
-            <button className="w-full h-[32px] bg-white text-black font-semibold rounded-md text-[11px] hover:bg-white/90 transition-colors">
+            <button 
+              onClick={() => setIsAiOpen(true)}
+              className="w-full h-[32px] bg-white border border-border text-text-primary font-semibold rounded-md text-[11px] hover:bg-surface transition-colors shadow-sm"
+            >
               Ask AI Assistant
             </button>
           </div>
 
           {/* Quick Actions Card */}
-          <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+          <div className="bg-surface border border-border rounded-lg p-3">
             <h4 className="text-[11px] font-bold text-[var(--color-sidebar-text-muted)] uppercase tracking-wider mb-2">
               Quick Actions
             </h4>
             <div className="flex flex-col gap-1">
-              <Link href="/inventory" className="text-[12px] text-white hover:text-[var(--color-intelligence)] transition-colors py-1">Add New Item</Link>
-              <Link href="/stock-intake" className="text-[12px] text-white hover:text-[var(--color-intelligence)] transition-colors py-1">Receive Stock</Link>
-              <Link href="/purchase-orders" className="text-[12px] text-white hover:text-[var(--color-intelligence)] transition-colors py-1">Create Purchase Order</Link>
-              <Link href="/transfers" className="text-[12px] text-white hover:text-[var(--color-intelligence)] transition-colors py-1">Create Transfer</Link>
+              <Link href="/inventory" className="text-[12px] text-text-secondary hover:text-[var(--color-intelligence)] transition-colors py-1">Add New Item</Link>
+              <Link href="/stock-intake" className="text-[12px] text-text-secondary hover:text-[var(--color-intelligence)] transition-colors py-1">Receive Stock</Link>
+              <Link href="/purchase-orders" className="text-[12px] text-text-secondary hover:text-[var(--color-intelligence)] transition-colors py-1">Create Purchase Order</Link>
+              <Link href="/transfers" className="text-[12px] text-text-secondary hover:text-[var(--color-intelligence)] transition-colors py-1">Create Transfer</Link>
             </div>
           </div>
         </div>
       )}
+
+      <AiAssistantDrawer isOpen={isAiOpen} onClose={() => setIsAiOpen(false)} />
     </aside>
   );
 }

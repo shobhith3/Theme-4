@@ -1,0 +1,207 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id        String     @id @default(cuid())
+  name      String
+  branches  Branch[]
+  users     User[]
+  invites   Invite[]
+  items     Item[]
+  suppliers Supplier[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model User {
+  id             String         @id @default(cuid())
+  clerkUserId    String?        @unique
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  name           String
+  email          String         @unique
+  role           String // e.g. 'OWNER', 'ADMIN', 'REGIONAL_MANAGER', 'BRANCH_MANAGER', 'INVENTORY_STAFF', 'VIEWER'
+  branchAccess   BranchAccess[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model BranchAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, branchId])
+}
+
+model Invite {
+  id             String       @id @default(cuid())
+  email          String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  role           String
+  token          String       @unique
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+}
+
+model Branch {
+  id                   String            @id @default(cuid())
+  organizationId       String
+  organization         Organization      @relation(fields: [organizationId], references: [id])
+  name                 String
+  type                 String // e.g. 'HUB', 'CENTRAL', 'MAIN'
+  inventory            BranchInventory[]
+  transferSources      TransferOrder[]   @relation("SourceBranch")
+  transferDestinations TransferOrder[]   @relation("DestinationBranch")
+  branchAccess         BranchAccess[]
+  decisions            Decision[]
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+}
+
+model Supplier {
+  id             String          @id @default(cuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  name           String
+  reliability    Float // 0-100 score
+  leadTimeDays   Int
+  purchaseOrders PurchaseOrder[]
+  supplierItems  SupplierItem[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model Item {
+  id                 String              @id @default(cuid())
+  organizationId     String
+  organization       Organization        @relation(fields: [organizationId], references: [id])
+  sku                String
+  name               String
+  category           String
+  unit               String
+  unitRevenue        Float // Expected revenue per unit
+  inventory          BranchInventory[]
+  transactions       StockTransaction[]
+  supplierItems      SupplierItem[]
+  decisions          Decision[]
+  purchaseOrderItems PurchaseOrderItem[]
+  transferOrderItems TransferOrderItem[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@unique([organizationId, sku])
+}
+
+model SupplierItem {
+  id          String   @id @default(cuid())
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  itemId      String
+  item        Item     @relation(fields: [itemId], references: [id])
+  unitCost    Float
+  minOrderQty Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([supplierId, itemId])
+}
+
+model BranchInventory {
+  id            String             @id @default(cuid())
+  branchId      String
+  branch        Branch             @relation(fields: [branchId], references: [id])
+  itemId        String
+  item          Item               @relation(fields: [itemId], references: [id])
+  currentStock  Float // Cached value, updated via ledger transactions
+  reservedStock Float              @default(0)
+  safeStock     Float // Safety stock level
+  safeCoverDays Int // Target cover days
+  transactions  StockTransaction[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([branchId, itemId])
+}
+
+model StockTransaction {
+  id          String          @id @default(cuid())
+  inventoryId String
+  inventory   BranchInventory @relation(fields: [inventoryId], references: [id])
+  itemId      String
+  item        Item            @relation(fields: [itemId], references: [id])
+  quantity    Float
+  direction   Int // 1 for IN, -1 for OUT
+  type        String // 'CONSUMPTION', 'INTAKE', 'TRANSFER_IN', 'TRANSFER_OUT', 'ADJUSTMENT'
+  referenceId String? // ID of PO, Transfer, etc.
+  date        DateTime        @default(now())
+  createdAt   DateTime        @default(now())
+}
+
+model Decision {
+  id            String   @id @default(cuid())
+  itemId        String
+  item          Item     @relation(fields: [itemId], references: [id])
+  branchId      String
+  branch        Branch   @relation(fields: [branchId], references: [id])
+  date          DateTime @default(now())
+  riskLevel     String // 'Critical', 'High', 'Medium', 'Low'
+  revenueAtRisk Float
+  status        String // 'new', 'needs_review', 'approved', 'rejected'
+  aiExplanation String?
+  dataPayload   String // Store the computed decision JSON
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model PurchaseOrder {
+  id           String              @id @default(cuid())
+  supplierId   String
+  supplier     Supplier            @relation(fields: [supplierId], references: [id])
+  status       String // 'Draft', 'Sent', 'Confirmed', 'Partially Received', 'Received'
+  expectedDate DateTime?
+  items        PurchaseOrderItem[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  itemId          String
+  item            Item          @relation(fields: [itemId], references: [id])
+  quantity        Float
+  unitCost        Float
+}
+
+model TransferOrder {
+  id              String              @id @default(cuid())
+  sourceBranchId  String
+  sourceBranch    Branch              @relation("SourceBranch", fields: [sourceBranchId], references: [id])
+  destBranchId    String
+  destBranch      Branch              @relation("DestinationBranch", fields: [destBranchId], references: [id])
+  status          String // 'Draft', 'In Transit', 'Received'
+  expectedArrival DateTime?
+  items           TransferOrderItem[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model TransferOrderItem {
+  id              String        @id @default(cuid())
+  transferOrderId String
+  transferOrder   TransferOrder @relation(fields: [transferOrderId], references: [id])
+  itemId          String
+  item            Item          @relation(fields: [itemId], references: [id])
+  quantity        Float
+}
