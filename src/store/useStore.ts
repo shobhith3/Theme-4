@@ -74,6 +74,57 @@ const initialPurchaseOrders: PurchaseOrder[] = [
   }
 ];
 
+const initialTransfers: TransferOrder[] = [
+  {
+    id: "TR-2025-035",
+    sourceBranchId: "branch-war",
+    sourceBranchName: "Warangal",
+    destinationBranchId: "branch-hyd",
+    destinationBranchName: "Hyderabad Central",
+    itemId: "inv-hyd-001",
+    itemName: "Chicken Breast",
+    quantity: 18,
+    unit: "kg",
+    expectedArrivalDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+    transportCost: 450,
+    coldStorageRequired: true,
+    status: "in_transit",
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "TR-2025-034",
+    sourceBranchId: "branch-sid",
+    sourceBranchName: "Siddipet Main",
+    destinationBranchId: "branch-hyd",
+    destinationBranchName: "Hyderabad Central",
+    itemId: "inv-hyd-005",
+    itemName: "Tomatoes",
+    quantity: 12,
+    unit: "kg",
+    expectedArrivalDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    transportCost: 200,
+    coldStorageRequired: false,
+    status: "received",
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "TR-2025-033",
+    sourceBranchId: "branch-war",
+    sourceBranchName: "Warangal",
+    destinationBranchId: "branch-sid",
+    destinationBranchName: "Siddipet Main",
+    itemId: "inv-war-003",
+    itemName: "Milk",
+    quantity: 20,
+    unit: "L",
+    expectedArrivalDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+    transportCost: 350,
+    coldStorageRequired: true,
+    status: "draft",
+    createdAt: new Date().toISOString(),
+  }
+];
+
 export interface AppSettings {
   organizationName: string;
   currency: string;
@@ -158,7 +209,7 @@ export const useStore = create<StoreState>()(
       feedEvents: mockFeedEvents,
       settings: defaultSettings,
       stockTransactions: [],
-      transfers: [],
+      transfers: initialTransfers,
       autoApprovalRules: [
         {
           id: "rule-1",

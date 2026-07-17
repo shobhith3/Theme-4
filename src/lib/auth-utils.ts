@@ -3,45 +3,25 @@ import prisma from '@/lib/prisma';
 
 export async function validateUserAccess(branchId?: string | null) {
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("__session")?.value;
+  const sessionToken = cookieStore.get("procureiq_session")?.value;
   if (!sessionToken) throw new Error("Unauthorized");
 
-  let userId: string;
+  let sessionData: { email: string; name: string };
   try {
-    const payloadBase64 = sessionToken.split('.')[1];
-    const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
-    userId = payload.sub;
+    sessionData = JSON.parse(sessionToken);
   } catch (err) {
     throw new Error("Invalid session token");
   }
-  
-  if (!userId) throw new Error("Unauthorized");
+
+  const { email, name } = sessionData;
+  if (!email) throw new Error("Unauthorized");
 
   let user = await prisma.user.findUnique({
-    where: { clerkUserId: userId },
+    where: { email },
     include: { branchAccess: true }
   });
 
   if (!user) {
-    let email = "user@example.com";
-    let name = "New User";
-    
-    // We can fetch from Clerk REST API if we have the Secret Key, else fallback
-    if (process.env.CLERK_SECRET_KEY) {
-      try {
-        const res = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
-          headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}` }
-        });
-        if (res.ok) {
-          const clerkData = await res.json();
-          email = clerkData.email_addresses?.[0]?.email_address || email;
-          name = `${clerkData.first_name || ""} ${clerkData.last_name || ""}`.trim() || name;
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-
     let org = await prisma.organization.findFirst({
       where: { name: "FreshEats Co." }
     });
@@ -54,7 +34,7 @@ export async function validateUserAccess(branchId?: string | null) {
 
     user = await prisma.user.create({
       data: {
-        clerkUserId: userId,
+        clerkUserId: `demo_${Date.now()}`, // Keep field for schema compatibility
         email,
         name,
         role: "OWNER",

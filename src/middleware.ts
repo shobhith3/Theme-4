@@ -7,6 +7,7 @@ const PUBLIC_ROUTES = [
   "/unauthorized",
 ];
 
+const AUTH_API_PREFIX = "/api/auth";
 const PUBLIC_FILE = /\.(.*)$/;
 
 export function middleware(req: NextRequest) {
@@ -14,19 +15,26 @@ export function middleware(req: NextRequest) {
 
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api/auth") ||
+    pathname.startsWith(AUTH_API_PREFIX) ||
     pathname === "/favicon.ico" ||
     PUBLIC_FILE.test(pathname)
   ) {
     return NextResponse.next();
   }
 
-  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
+  const isPublicRoute = PUBLIC_ROUTES.some((route) =>
+    pathname.startsWith(route)
+  );
+
+  const session = req.cookies.get("procureiq_session")?.value;
+
+  if (isPublicRoute) {
+    if (session && pathname === "/login") {
+      return NextResponse.redirect(new URL("/command-center", req.url));
+    }
+
     return NextResponse.next();
   }
-
-  // Fallback to checking the session cookie manually for lightweight routing
-  const session = req.cookies.get("__session")?.value;
 
   if (!session) {
     const loginUrl = new URL("/login", req.url);
@@ -38,7 +46,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
