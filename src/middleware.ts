@@ -1,5 +1,4 @@
-import { clerkMiddleware } from '@clerk/nextjs/server';
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -10,7 +9,7 @@ const PUBLIC_ROUTES = [
 
 const PUBLIC_FILE = /\.(.*)$/;
 
-export default clerkMiddleware(async (auth, req) => {
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (
@@ -36,7 +35,7 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [

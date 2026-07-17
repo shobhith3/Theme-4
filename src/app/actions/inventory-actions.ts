@@ -1,19 +1,11 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import { auth } from '@clerk/nextjs/server';
+import { validateUserAccess } from '@/lib/auth-utils';
 import { Branch, InventoryItem } from '@/types';
 
 export async function getOrganizationBranches(): Promise<any[]> {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
-
-  const user = await prisma.user.findUnique({
-    where: { clerkUserId: userId },
-    include: { branchAccess: true }
-  });
-
-  if (!user) throw new Error("User not synced");
+  const { user } = await validateUserAccess();
 
   // Fetch branches. If Regional/Admin, they might have access to all or specific. 
   // Based on schema, we map from branchAccess.
@@ -40,15 +32,7 @@ export async function getOrganizationBranches(): Promise<any[]> {
 }
 
 export async function getBranchInventory(branchId?: string): Promise<any[]> {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
-
-  const user = await prisma.user.findUnique({
-    where: { clerkUserId: userId },
-    include: { branchAccess: true }
-  });
-
-  if (!user) throw new Error("User not synced");
+  const { user } = await validateUserAccess();
   
   const branchIds = user.branchAccess.map(ba => ba.branchId);
 
